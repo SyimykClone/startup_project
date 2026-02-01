@@ -26,7 +26,7 @@ class _PoiListScreenState extends State<PoiListScreen> {
     _initialized = true;
 
     final cfg = context.read<AppConfig>();
-    _service = PoiService(ApiClient(cfg.apiBaseUrl), useMock: true);
+    _service = PoiService(ApiClient(cfg.apiBaseUrl), useMock: cfg.useMock);
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
