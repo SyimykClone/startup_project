@@ -46,8 +46,8 @@ class _MapScreenState extends State<MapScreen> {
     final cfg = context.read<AppConfig>();
     MapboxOptions.setAccessToken(cfg.mapboxToken);
 
-    _poiService = PoiService(ApiClient(cfg.apiBaseUrl), useMock: true);
-    _routeService = RouteService(ApiClient(cfg.apiBaseUrl), useMock: true);
+    _poiService = PoiService(ApiClient(cfg.apiBaseUrl), useMock: cfg.useMock);
+    _routeService = RouteService(ApiClient(cfg.apiBaseUrl), useMock: cfg.useMock);
 
     final args = ModalRoute.of(context)?.settings.arguments;
     if (args is Poi) {
