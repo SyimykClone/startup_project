@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.poi import router as poi_router
 from app.api.route import router as route_router
+from feature.backend.app.core.db import close_db, connect_db
 
 
 def create_app() -> FastAPI:
@@ -20,6 +21,15 @@ def create_app() -> FastAPI:
     @app.get("/health")
     def health():
         return {"status": "ok"}
+    
+    @app.on_event("startup")
+    async def _startup():
+        await connect_db()
+
+    @app.on_event("shutdown")
+    async def _shutdown():
+        await close_db()
+
 
     app.include_router(poi_router)
     app.include_router(route_router)
