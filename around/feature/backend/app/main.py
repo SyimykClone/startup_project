@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.poi import router as poi_router
 from app.api.route import router as route_router
-from feature.backend.app.core.db import close_db, connect_db
+from app.core.db import close_db, connect_db
 
 
 def create_app() -> FastAPI:
