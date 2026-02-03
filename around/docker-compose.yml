@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:18
+    container_name: around-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "123456"
+      POSTGRES_DB: around
+    ports:
+      - "5433:5432"   
+    volumes:
+      - pgdata:/var/lib/postgresql
+volumes:
+  pgdata:
