@@ -7,8 +7,12 @@ services:
       POSTGRES_PASSWORD: "123456"
       POSTGRES_DB: around
     ports:
-      - "5433:5432"   
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql
+
+      - ./feature/database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./feature/database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+
 volumes:
   pgdata:
