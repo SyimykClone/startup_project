@@ -3,7 +3,7 @@ from typing import List
 
 
 class Settings(BaseSettings):
-    DATABASE_URL: str = "postgresql://postgres:123456@localhost:5432/postgres"
+    DATABASE_URL: str = "postgresql://postgres:123456@127.0.0.1:5433/around"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
