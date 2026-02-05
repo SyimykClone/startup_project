@@ -4,6 +4,9 @@ from typing import List
 
 class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://postgres:123456@127.0.0.1:5433/around"
+    REDIS_URL: str = "redis://localhost:6379/0"
+    AUTH_SESSION_TTL_SECONDS: int = 60 * 60 * 24 * 7
+    AUTH_SECRET_KEY: str = "change-me"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
