@@ -37,7 +37,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'ARound',
       onGenerateRoute: AppRouter.onGenerateRoute,
-      initialRoute: Routes.login,
+      initialRoute: Routes.auth,
     );
   }
 }
