@@ -43,6 +43,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final auth = context.read<AuthState>();
 
     await auth.register(
+      _username.text.trim(),
       _email.text.trim().toLowerCase(),
       _pass.text.trim(),
     );
