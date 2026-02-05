@@ -10,9 +10,15 @@ services:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql
-
       - ./feature/database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
       - ./feature/database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+      - ./feature/database/users.sql:/docker-entrypoint-initdb.d/03-users.sql:ro
+
+  redis:
+    image: redis:7-alpine
+    container_name: around-redis
+    ports:
+      - "6379:6379"
 
 volumes:
   pgdata:
