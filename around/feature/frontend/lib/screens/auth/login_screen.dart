@@ -12,17 +12,38 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
+
   final _email = TextEditingController(text: "test@mail.com");
   final _pass = TextEditingController(text: "123456");
 
+  bool _hide = true;
+
+  bool _isValidEmail(String v) {
+    final re = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+    return re.hasMatch(v);
+  }
+
   @override
-  void initState() {
-    super.initState();
-    context.read<AuthState>().init().then((_) {
-      if (context.read<AuthState>().isAuthed) {
-        Navigator.pushReplacementNamed(context, Routes.map);
-      }
-    });
+  void dispose() {
+    _email.dispose();
+    _pass.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final ok = _formKey.currentState?.validate() ?? false;
+    if (!ok) return;
+
+    final auth = context.read<AuthState>();
+
+    await auth.login(
+      _email.text.trim().toLowerCase(),
+      _pass.text.trim(),
+    );
+
+    if (!mounted) return;
+    Navigator.pushReplacementNamed(context, Routes.map);
   }
 
   @override
@@ -30,34 +51,73 @@ class _LoginScreenState extends State<LoginScreen> {
     final auth = context.watch<AuthState>();
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Login")),
+      appBar: AppBar(title: const Text("Sign in")),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            TextField(controller: _email, decoration: const InputDecoration(labelText: "Email")),
-            TextField(
-              controller: _pass,
-              decoration: const InputDecoration(labelText: "Password"),
-              obscureText: true,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: auth.isLoading
-                  ? null
-                  : () async {
-                      await context.read<AuthState>().login(_email.text.trim(), _pass.text.trim());
-                      if (context.mounted) {
-                        Navigator.pushReplacementNamed(context, Routes.map);
-                      }
-                    },
-              child: auth.isLoading ? const CircularProgressIndicator() : const Text("Login"),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pushNamed(context, Routes.register),
-              child: const Text("Create account"),
-            )
-          ],
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              TextFormField(
+                controller: _email,
+                decoration: const InputDecoration(labelText: "Email"),
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+                validator: (v) {
+                  final s = (v ?? '').trim();
+                  if (s.isEmpty) return "Email is required";
+                  if (!_isValidEmail(s)) return "Enter a valid email";
+                  return null;
+                },
+              ),
+
+              TextFormField(
+                controller: _pass,
+                decoration: InputDecoration(
+                  labelText: "Password",
+                  suffixIcon: IconButton(
+                    onPressed: () => setState(() => _hide = !_hide),
+                    icon: Icon(_hide ? Icons.visibility : Icons.visibility_off),
+                  ),
+                ),
+                obscureText: _hide,
+                textInputAction: TextInputAction.done,
+                validator: (v) {
+                  final s = (v ?? '').trim();
+                  if (s.isEmpty) return "Password is required";
+                  if (s.length < 6) return "Password must be at least 6 characters";
+                  return null;
+                },
+                onFieldSubmitted: (_) => _submit(),
+              ),
+
+              const SizedBox(height: 16),
+
+              FilledButton(
+                onPressed: auth.isLoading ? null : _submit,
+                child: auth.isLoading
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text("Sign in"),
+              ),
+
+              const SizedBox(height: 16),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text("No account? "),
+                  TextButton(
+                    onPressed: () => Navigator.pushReplacementNamed(context, Routes.register),
+                    child: const Text("Sign up"),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
