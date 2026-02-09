@@ -42,14 +42,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     final auth = context.read<AuthState>();
 
-    await auth.register(
+    final success = await auth.register(
       _username.text.trim(),
       _email.text.trim().toLowerCase(),
       _pass.text.trim(),
     );
 
     if (!mounted) return;
-    Navigator.pushReplacementNamed(context, Routes.map);
+
+    if (success) {
+      Navigator.pushReplacementNamed(context, Routes.map);
+    }
   }
 
   @override
@@ -62,7 +65,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
-          child: Column(
+          child: ListView(
             children: [
               TextFormField(
                 controller: _username,
@@ -76,6 +79,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   return null;
                 },
               ),
+              const SizedBox(height: 12),
 
               TextFormField(
                 controller: _email,
@@ -89,6 +93,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   return null;
                 },
               ),
+              const SizedBox(height: 12),
 
               TextFormField(
                 controller: _pass,
@@ -108,6 +113,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   return null;
                 },
               ),
+              const SizedBox(height: 12),
 
               TextFormField(
                 controller: _pass2,
@@ -128,6 +134,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 },
                 onFieldSubmitted: (_) => _submit(),
               ),
+
+              if (auth.error != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  auth.error!,
+                  style: const TextStyle(color: Colors.red),
+                  textAlign: TextAlign.center,
+                ),
+              ],
 
               const SizedBox(height: 16),
 
