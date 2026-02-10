@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:dio/dio.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/network/api_client.dart';
@@ -154,7 +155,23 @@ class _MapScreenState extends State<MapScreen> {
 
       await _drawRoute(resp);
     } catch (e) {
-      routeState.fail(e.toString());
+      String msg = e.toString();
+
+      if (e is DioException) {
+        final data = e.response?.data;
+
+        if (data is Map && data["detail"] != null) {
+          msg = data["detail"].toString();
+        } else if (data is String && data.isNotEmpty) {
+          msg = data;
+        } else if (e.message != null && e.message!.isNotEmpty) {
+          msg = e.message!;
+        } else if (e.response?.statusCode != null) {
+          msg = "Request failed (${e.response!.statusCode})";
+        }
+      }
+
+      routeState.fail(msg);
     }
   }
 

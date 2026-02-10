@@ -14,8 +14,8 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  final _email = TextEditingController(text: "test@mail.com");
-  final _pass = TextEditingController(text: "123456");
+  final _email = TextEditingController();
+  final _pass = TextEditingController();
 
   bool _hide = true;
 
@@ -37,13 +37,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final auth = context.read<AuthState>();
 
-    await auth.login(
+    final success = await auth.login(
       _email.text.trim().toLowerCase(),
       _pass.text.trim(),
     );
 
     if (!mounted) return;
-    Navigator.pushReplacementNamed(context, Routes.map);
+
+    if (success) {
+      Navigator.pushReplacementNamed(context, Routes.map);
+    }
   }
 
   @override
@@ -56,7 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
-          child: Column(
+          child: ListView(
             children: [
               TextFormField(
                 controller: _email,
@@ -70,6 +73,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   return null;
                 },
               ),
+              const SizedBox(height: 12),
 
               TextFormField(
                 controller: _pass,
@@ -90,6 +94,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 },
                 onFieldSubmitted: (_) => _submit(),
               ),
+
+              if (auth.error != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  auth.error!,
+                  style: const TextStyle(color: Colors.red),
+                  textAlign: TextAlign.center,
+                ),
+              ],
 
               const SizedBox(height: 16),
 
