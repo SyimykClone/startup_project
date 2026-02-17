@@ -16,6 +16,11 @@ class AuthState extends ChangeNotifier {
   bool get isAuthed => _token != null && _token!.isNotEmpty;
   String? get error => _error;
 
+  void clearError() {
+    _error = null;
+    notifyListeners();
+  }
+
   String _humanizeDioError(Object e) {
     if (e is! DioException) return e.toString();
 
