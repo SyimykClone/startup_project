@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../core/router/app_router.dart';
 import '../../state/auth_state.dart';
@@ -19,6 +20,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _email = TextEditingController();
   final _pass = TextEditingController();
   final _pass2 = TextEditingController();
+  bool _googleLoading = false;
 
   bool _hide1 = true;
   bool _hide2 = true;
@@ -65,10 +67,57 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  Future<void> _signInWithGoogle() async {
+    if (_googleLoading) return;
+    setState(() => _googleLoading = true);
+    ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+    try {
+      final google = GoogleSignIn(
+        scopes: const ["email", "profile"],
+        serverClientId: "93446166912-o85fbrck4ss9a1kus6dir4b2b00856tu.apps.googleusercontent.com"
+      );
+      final account = await google.signIn();
+      if (account == null) {
+        return;
+      }
+
+      final auth = await account.authentication;
+      if (auth.idToken == null || auth.idToken!.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showMaterialBanner(
+          ErrorBanner.build(
+            context,
+            message: "Google token is empty. Backend integration is required.",
+          ),
+        );
+        return;
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Google sign-in succeeded. Backend link is next."),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showMaterialBanner(
+        ErrorBanner.build(
+          context,
+          message: "Google sign-in failed. Check Google setup in Android/iOS.",
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _googleLoading = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthState>();
-    final disabled = auth.isLoading;
+    final disabled = auth.isLoading || _googleLoading;
 
     if (auth.error != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -213,6 +262,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   ],
                                 )
                               : const Text("Create account"),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 46,
+                        child: OutlinedButton(
+                          onPressed: disabled ? null : _signInWithGoogle,
+                          child: _googleLoading
+                              ? const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(
+                                      height: 16,
+                                      width: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    ),
+                                    SizedBox(width: 10),
+                                    Text("Connecting Google..."),
+                                  ],
+                                )
+                              : const Text("Continue with Google"),
                         ),
                       ),
                       const SizedBox(height: 16),
