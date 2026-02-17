@@ -67,6 +67,9 @@ class _LoginScreenState extends State<LoginScreen> {
         scopes: const ["email", "profile"],
         serverClientId: "93446166912-o85fbrck4ss9a1kus6dir4b2b00856tu.apps.googleusercontent.com"
       );
+      try {
+        await google.signOut();
+      } catch (_) {}
       final account = await google.signIn();
       if (account == null) {
         return;
@@ -78,18 +81,18 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context).showMaterialBanner(
           ErrorBanner.build(
             context,
-            message: "Google token is empty. Backend integration is required.",
+            message: "Google token is empty.",
           ),
         );
         return;
       }
 
+      final success = await context.read<AuthState>().loginWithGoogle(auth.idToken!);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Google sign-in succeeded. Backend link is next."),
-        ),
-      );
+      if (success) {
+        ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+        Navigator.pushReplacementNamed(context, Routes.map);
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showMaterialBanner(
