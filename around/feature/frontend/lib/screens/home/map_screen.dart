@@ -1,3 +1,4 @@
+import 'package:around/state/auth_state.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
@@ -47,8 +48,9 @@ class _MapScreenState extends State<MapScreen> {
     final cfg = context.read<AppConfig>();
     MapboxOptions.setAccessToken(cfg.mapboxToken);
 
-    _poiService = PoiService(ApiClient(cfg.apiBaseUrl), useMock: cfg.useMock);
-    _routeService = RouteService(ApiClient(cfg.apiBaseUrl), useMock: cfg.useMock);
+    final token = context.read<AuthState>().token;
+    _poiService = PoiService(ApiClient(cfg.apiBaseUrl, token: token), useMock: cfg.useMock);
+    _routeService = RouteService(ApiClient(cfg.apiBaseUrl, token: token), useMock: cfg.useMock);
 
     final args = ModalRoute.of(context)?.settings.arguments;
     if (args is Poi) {
