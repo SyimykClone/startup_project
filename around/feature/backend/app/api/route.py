@@ -1,8 +1,13 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from app.models.route import RouteRequest, RouteResponse
 from app.services.mapbox_directions import build_route, MapboxDirectionsError
+from app.deps.auth import require_auth
 
-router = APIRouter(prefix="/api/route", tags=["route"])
+router = APIRouter(
+    prefix="/api/route",
+    tags=["route"],
+    dependencies=[Depends(require_auth)],
+)
 
 
 @router.post("", response_model=RouteResponse)

@@ -1,5 +1,8 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pathlib import Path
 from typing import List
+
+BASE_DIR = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
@@ -8,7 +11,10 @@ class Settings(BaseSettings):
     AUTH_SESSION_TTL_SECONDS: int = 60 * 60 * 24 * 7
     AUTH_SECRET_KEY: str = "change-me"
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=str(BASE_DIR / ".env"),
+        extra="ignore",
+    )
 
     APP_ENV: str = "dev"
     HOST: str = "0.0.0.0"
