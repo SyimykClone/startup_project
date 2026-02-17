@@ -13,3 +13,16 @@ async def create_session(user_id: int) -> str:
 async def delete_session(session_id: str) -> None:
     r = get_redis()
     await r.delete(f"sess:{session_id}")
+
+
+async def get_session_user_id(session_id: str) -> int | None:
+    r = get_redis()
+    data = await r.get(f"sess:{session_id}")
+    if not data:
+        return None
+    try:
+        payload = json.loads(data)
+    except json.JSONDecodeError:
+        return None
+    user_id = payload.get("user_id")
+    return user_id if isinstance(user_id, int) else None

@@ -1,9 +1,14 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 from app.models.poi import Poi
 from app.services.poi_repo import list_poi, get_poi
+from app.deps.auth import require_auth
 
-router = APIRouter(prefix="/api/poi", tags=["poi"])
+router = APIRouter(
+    prefix="/api/poi",
+    tags=["poi"],
+    dependencies=[Depends(require_auth)],
+)
 
 
 @router.get("", response_model=List[Poi])
