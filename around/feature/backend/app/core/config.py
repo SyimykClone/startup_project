@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:*"
 
     MAPBOX_TOKEN: str = ""
+    GOOGLE_WEB_CLIENT_ID: str = ""
 
     def cors_list(self) -> List[str]:
         return [x.strip() for x in self.CORS_ORIGINS.split(",") if x.strip()]
