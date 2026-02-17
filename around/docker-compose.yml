@@ -9,7 +9,7 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - pgdata:/var/lib/postgresql
+      - pgdata:/var/lib/postgresql/data
       - ./feature/database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
       - ./feature/database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
       - ./feature/database/users.sql:/docker-entrypoint-initdb.d/03-users.sql:ro
