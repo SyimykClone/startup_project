@@ -5,6 +5,7 @@ import '../../core/config/app_config.dart';
 import '../../core/network/api_client.dart';
 import '../../models/poi.dart';
 import '../../services/poi_service.dart';
+import '../../state/auth_state.dart';
 import '../../state/poi_state.dart';
 
 class PoiListScreen extends StatefulWidget {
@@ -26,7 +27,11 @@ class _PoiListScreenState extends State<PoiListScreen> {
     _initialized = true;
 
     final cfg = context.read<AppConfig>();
-    _service = PoiService(ApiClient(cfg.apiBaseUrl), useMock: cfg.useMock);
+    final token = context.read<AuthState>().token;
+    _service = PoiService(
+      ApiClient(cfg.apiBaseUrl, token: token),
+      useMock: cfg.useMock,
+    );
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }

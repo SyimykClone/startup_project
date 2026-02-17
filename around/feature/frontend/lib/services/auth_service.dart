@@ -30,6 +30,16 @@ class AuthService {
     api.setToken(token);
   }
 
+  Future<void> loginWithGoogle(String idToken) async {
+    final res = await api.dio.post('/api/auth/google', data: {
+      "id_token": idToken,
+    });
+
+    final token = res.data['access_token'] as String;
+    await _storage.saveToken(token);
+    api.setToken(token);
+  }
+
   Future<void> logout() async {
     try {
       await api.dio.post('/api/auth/logout');

@@ -105,6 +105,24 @@ class AuthState extends ChangeNotifier {
     }
   }
 
+  Future<bool> loginWithGoogle(String idToken) async {
+    _loading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _auth.loginWithGoogle(idToken);
+      _token = await _auth.getToken();
+      return isAuthed;
+    } catch (e) {
+      _error = _humanizeDioError(e);
+      return false;
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> logout() async {
     _loading = true;
     _error = null;
