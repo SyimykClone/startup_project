@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/router/app_router.dart';
 import '../../state/auth_state.dart';
+import '../../widgets/error_banner.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,14 +15,18 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  final _email = TextEditingController(text: "test@mail.com");
-  final _pass = TextEditingController(text: "123456");
+  final _email = TextEditingController();
+  final _pass = TextEditingController();
 
   bool _hide = true;
 
   bool _isValidEmail(String v) {
     final re = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
     return re.hasMatch(v);
+  }
+
+  bool _isStrongEnoughPassword(String v) {
+    return v.length >= 6;
   }
 
   @override
@@ -35,20 +40,40 @@ class _LoginScreenState extends State<LoginScreen> {
     final ok = _formKey.currentState?.validate() ?? false;
     if (!ok) return;
 
+    ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
     final auth = context.read<AuthState>();
 
-    await auth.login(
+    final success = await auth.login(
       _email.text.trim().toLowerCase(),
       _pass.text.trim(),
     );
 
     if (!mounted) return;
-    Navigator.pushReplacementNamed(context, Routes.map);
+
+    if (success) {
+      ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+      Navigator.pushReplacementNamed(context, Routes.map);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthState>();
+    final disabled = auth.isLoading;
+
+    if (auth.error != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+        ScaffoldMessenger.of(context).showMaterialBanner(
+          ErrorBanner.build(
+            context,
+            message: auth.error!,
+          ),
+        );
+        context.read<AuthState>().clearError();
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text("Sign in")),
@@ -56,65 +81,105 @@ class _LoginScreenState extends State<LoginScreen> {
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
-          child: Column(
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          child: ListView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             children: [
-              TextFormField(
-                controller: _email,
-                decoration: const InputDecoration(labelText: "Email"),
-                keyboardType: TextInputType.emailAddress,
-                textInputAction: TextInputAction.next,
-                validator: (v) {
-                  final s = (v ?? '').trim();
-                  if (s.isEmpty) return "Email is required";
-                  if (!_isValidEmail(s)) return "Enter a valid email";
-                  return null;
-                },
-              ),
-
-              TextFormField(
-                controller: _pass,
-                decoration: InputDecoration(
-                  labelText: "Password",
-                  suffixIcon: IconButton(
-                    onPressed: () => setState(() => _hide = !_hide),
-                    icon: Icon(_hide ? Icons.visibility : Icons.visibility_off),
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TextFormField(
+                        controller: _email,
+                        enabled: !disabled,
+                        decoration: const InputDecoration(
+                          labelText: "Email",
+                          hintText: "you@example.com",
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.email],
+                        validator: (v) {
+                          final s = (v ?? '').trim().toLowerCase();
+                          if (s.isEmpty) return "Email is required";
+                          if (!_isValidEmail(s)) return "Enter a valid email";
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _pass,
+                        enabled: !disabled,
+                        decoration: InputDecoration(
+                          labelText: "Password",
+                          helperText: "At least 6 characters",
+                          suffixIcon: IconButton(
+                            onPressed: disabled
+                                ? null
+                                : () => setState(() => _hide = !_hide),
+                            icon:
+                                Icon(_hide ? Icons.visibility : Icons.visibility_off),
+                          ),
+                        ),
+                        obscureText: _hide,
+                        textInputAction: TextInputAction.done,
+                        autofillHints: const [AutofillHints.password],
+                        validator: (v) {
+                          final s = (v ?? '').trim();
+                          if (s.isEmpty) return "Password is required";
+                          if (!_isStrongEnoughPassword(s)) {
+                            return "Password must be at least 6 characters";
+                          }
+                          return null;
+                        },
+                        onFieldSubmitted: (_) => _submit(),
+                      ),
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        height: 46,
+                        child: FilledButton(
+                          onPressed: disabled ? null : _submit,
+                          child: auth.isLoading
+                              ? const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(
+                                      height: 16,
+                                      width: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    ),
+                                    SizedBox(width: 10),
+                                    Text("Signing in..."),
+                                  ],
+                                )
+                              : const Text("Sign in"),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text("No account? "),
+                          TextButton(
+                            onPressed: disabled
+                                ? null
+                                : () {
+                                    ScaffoldMessenger.of(context)
+                                        .hideCurrentMaterialBanner();
+                                    Navigator.pushReplacementNamed(
+                                      context,
+                                      Routes.register,
+                                    );
+                                  },
+                            child: const Text("Sign up"),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                obscureText: _hide,
-                textInputAction: TextInputAction.done,
-                validator: (v) {
-                  final s = (v ?? '').trim();
-                  if (s.isEmpty) return "Password is required";
-                  if (s.length < 6) return "Password must be at least 6 characters";
-                  return null;
-                },
-                onFieldSubmitted: (_) => _submit(),
-              ),
-
-              const SizedBox(height: 16),
-
-              FilledButton(
-                onPressed: auth.isLoading ? null : _submit,
-                child: auth.isLoading
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text("Sign in"),
-              ),
-
-              const SizedBox(height: 16),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text("No account? "),
-                  TextButton(
-                    onPressed: () => Navigator.pushReplacementNamed(context, Routes.register),
-                    child: const Text("Sign up"),
-                  ),
-                ],
               ),
             ],
           ),
