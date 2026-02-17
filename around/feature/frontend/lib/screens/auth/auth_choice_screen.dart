@@ -23,15 +23,28 @@ class AuthChoiceScreen extends StatelessWidget {
                     style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 28),
-
-                  FilledButton(
-                    onPressed: () => Navigator.pushNamed(context, Routes.login),
-                    child: const Text("Sign in"),
+                  FractionallySizedBox(
+                    widthFactor: 0.5,
+                    child: SizedBox(
+                      height: 44,
+                      child: SizedBox(
+                        height: 44,
+                        child: FilledButton(
+                          onPressed: () => Navigator.pushNamed(context, Routes.login),
+                          child: const Text("Sign in"),
+                        ),
+                      ),                    ),
                   ),
                   const SizedBox(height: 12),
-                  FilledButton(
-                    onPressed: () => Navigator.pushNamed(context, Routes.register),
-                    child: const Text("Sign up"),
+                  FractionallySizedBox(
+                    widthFactor: 0.5,
+                    child: SizedBox(
+                      height: 44,
+                      child: FilledButton(
+                        onPressed: () => Navigator.pushNamed(context, Routes.register),
+                        child: const Text("Sign up"),
+                      ),
+                    ),
                   ),
                 ],
               ),
