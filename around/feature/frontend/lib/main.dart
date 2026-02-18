@@ -25,7 +25,13 @@ Future<void> main() async {
         Provider<AppConfig>.value(value: config),
         Provider<ApiClient>.value(value: apiClient),
         Provider<AuthService>.value(value: authService),
-        ChangeNotifierProvider(create: (_) => AuthState(authService)),
+        ChangeNotifierProvider(
+          create: (_) {
+            final state = AuthState(authService);
+            state.init();
+            return state;
+          },
+        ),
         ChangeNotifierProvider(create: (_) => PoiState()),
         ChangeNotifierProvider(create: (_) => RouteState()),
       ],
