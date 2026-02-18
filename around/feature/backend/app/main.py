@@ -1,5 +1,7 @@
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.api.poi import router as poi_router
@@ -11,8 +13,11 @@ from app.api.auth import router as auth_router
 
 def create_app() -> FastAPI:
     app = FastAPI(title="ARound API", version="1.0.0")
+    uploads_dir = Path(__file__).resolve().parents[1] / "uploads"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
 
     app.include_router(auth_router)
+    app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 
     app.add_middleware(
         CORSMiddleware,
