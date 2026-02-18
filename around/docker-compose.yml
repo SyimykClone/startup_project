@@ -13,6 +13,7 @@ services:
       - ./feature/database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
       - ./feature/database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
       - ./feature/database/users.sql:/docker-entrypoint-initdb.d/03-users.sql:ro
+      - ./feature/database/profile.sql:/docker-entrypoint-initdb.d/04-profile.sql:ro
 
   redis:
     image: redis:7-alpine
