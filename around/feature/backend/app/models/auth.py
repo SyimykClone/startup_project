@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
+from typing import Optional
 
 class RegisterIn(BaseModel):
     username: str = Field(min_length=3, max_length=20)
@@ -17,3 +18,10 @@ class GoogleAuthIn(BaseModel):
 class AuthOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+class AuthMeOut(BaseModel):
+    id: int
+    username: str
+    email: EmailStr
+    avatar_url: Optional[str] = None
