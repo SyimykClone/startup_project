@@ -8,10 +8,14 @@ class AuthState extends ChangeNotifier {
   AuthState(this._auth);
 
   String? _token;
+  String? _username;
+  String? _avatarUrl;
   bool _loading = false;
   String? _error;
 
   String? get token => _token;
+  String? get username => _username;
+  String? get avatarUrl => _avatarUrl;
   bool get isLoading => _loading;
   bool get isAuthed => _token != null && _token!.isNotEmpty;
   String? get error => _error;
@@ -61,6 +65,9 @@ class AuthState extends ChangeNotifier {
 
     try {
       _token = await _auth.getToken();
+      if (isAuthed) {
+        await _loadMe();
+      }
     } catch (e) {
       _error = _humanizeDioError(e);
     } finally {
@@ -77,6 +84,7 @@ class AuthState extends ChangeNotifier {
     try {
       await _auth.login(email, pass);
       _token = await _auth.getToken();
+      await _loadMe();
       return isAuthed;
     } catch (e) {
       _error = _humanizeDioError(e);
@@ -95,6 +103,7 @@ class AuthState extends ChangeNotifier {
     try {
       await _auth.register(username, email, password);
       _token = await _auth.getToken();
+      await _loadMe();
       return isAuthed;
     } catch (e) {
       _error = _humanizeDioError(e);
@@ -113,6 +122,7 @@ class AuthState extends ChangeNotifier {
     try {
       await _auth.loginWithGoogle(idToken);
       _token = await _auth.getToken();
+      await _loadMe();
       return isAuthed;
     } catch (e) {
       _error = _humanizeDioError(e);
@@ -131,8 +141,58 @@ class AuthState extends ChangeNotifier {
     try {
       await _auth.logout();
       _token = null;
+      _username = null;
+      _avatarUrl = null;
     } catch (e) {
       _error = _humanizeDioError(e);
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _loadMe() async {
+    final me = await _auth.fetchMe();
+    final value = me["username"];
+    if (value is String && value.isNotEmpty) {
+      _username = value;
+    }
+    final avatar = me["avatar_url"];
+    if (avatar is String && avatar.isNotEmpty) {
+      _avatarUrl = avatar;
+    } else {
+      _avatarUrl = null;
+    }
+  }
+
+  Future<bool> updateProfile({
+    String? username,
+    String? password,
+    String? avatarFilePath,
+  }) async {
+    _loading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      final me = await _auth.updateMe(
+        username: username,
+        password: password,
+        avatarFilePath: avatarFilePath,
+      );
+      final nameValue = me["username"];
+      if (nameValue is String && nameValue.isNotEmpty) {
+        _username = nameValue;
+      }
+      final avatar = me["avatar_url"];
+      if (avatar is String && avatar.isNotEmpty) {
+        _avatarUrl = avatar;
+      } else {
+        _avatarUrl = null;
+      }
+      return true;
+    } catch (e) {
+      _error = _humanizeDioError(e);
+      return false;
     } finally {
       _loading = false;
       notifyListeners();

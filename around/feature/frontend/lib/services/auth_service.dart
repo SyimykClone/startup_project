@@ -1,5 +1,6 @@
 import '../core/network/api_client.dart';
 import '../core/storage/token_storage.dart';
+import 'package:dio/dio.dart';
 
 class AuthService {
   final ApiClient api;
@@ -38,6 +39,37 @@ class AuthService {
     final token = res.data['access_token'] as String;
     await _storage.saveToken(token);
     api.setToken(token);
+  }
+
+  Future<Map<String, dynamic>> fetchMe() async {
+    final res = await api.dio.get('/api/auth/me');
+    return (res.data as Map).cast<String, dynamic>();
+  }
+
+  Future<Map<String, dynamic>> updateMe({
+    String? username,
+    String? password,
+    String? avatarFilePath,
+  }) async {
+    final form = FormData();
+    if (username != null && username.trim().isNotEmpty) {
+      form.fields.add(MapEntry("username", username.trim()));
+    }
+    if (password != null && password.trim().isNotEmpty) {
+      form.fields.add(MapEntry("password", password.trim()));
+    }
+    if (avatarFilePath != null && avatarFilePath.isNotEmpty) {
+      final fileName = avatarFilePath.split(RegExp(r"[\\/]+")).last;
+      form.files.add(
+        MapEntry(
+          "avatar",
+          await MultipartFile.fromFile(avatarFilePath, filename: fileName),
+        ),
+      );
+    }
+
+    final res = await api.dio.patch('/api/auth/me', data: form);
+    return (res.data as Map).cast<String, dynamic>();
   }
 
   Future<void> logout() async {

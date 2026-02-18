@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import '../../screens/auth/auth_choice_screen.dart';
 import '../../screens/auth/login_screen.dart';
 import '../../screens/auth/register_screen.dart';
-import '../../screens/home/map_screen.dart';
+import '../../screens/home/app_shell_screen.dart';
 import '../../screens/home/poi_list_screen.dart';
 import '../../screens/poi/poi_detail_screen.dart';
+import '../../screens/profile/edit_profile_screen.dart';
 import '../../models/poi.dart';
 
 class Routes {
@@ -13,6 +14,7 @@ class Routes {
   static const login = '/sign-in';
   static const register = '/sign-up';
   static const map = '/map';
+  static const editProfile = '/profile/edit';
   static const poiList = '/poi-list';
   static const poiDetail = '/poi-detail';
 }
@@ -30,7 +32,10 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const RegisterScreen());
 
       case Routes.map:
-        return MaterialPageRoute(builder: (_) => const MapScreen());
+        return MaterialPageRoute(builder: (_) => const AppShellScreen());
+
+      case Routes.editProfile:
+        return MaterialPageRoute(builder: (_) => const EditProfileScreen());
 
       case Routes.poiList:
         return MaterialPageRoute(builder: (_) => const PoiListScreen());
