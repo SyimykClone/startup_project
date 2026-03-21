@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../screens/auth/auth_choice_screen.dart';
 import '../../screens/auth/login_screen.dart';
 import '../../screens/auth/register_screen.dart';
+import '../../screens/auth/splash_screen.dart';
 import '../../screens/home/app_shell_screen.dart';
 import '../../screens/home/poi_list_screen.dart';
 import '../../screens/poi/poi_detail_screen.dart';
@@ -10,6 +11,7 @@ import '../../screens/profile/edit_profile_screen.dart';
 import '../../models/poi.dart';
 
 class Routes {
+  static const splash = '/splash';
   static const auth = '/';
   static const login = '/sign-in';
   static const register = '/sign-up';
@@ -22,6 +24,9 @@ class Routes {
 class AppRouter {
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
+      case Routes.splash:
+        return MaterialPageRoute(builder: (_) => const SplashScreen());
+
       case Routes.auth:
         return MaterialPageRoute(builder: (_) => const AuthChoiceScreen());
 
@@ -45,7 +50,7 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => PoiDetailScreen(poi: poi));
 
       default:
-        return MaterialPageRoute(builder: (_) => const AuthChoiceScreen());
+        return MaterialPageRoute(builder: (_) => const SplashScreen());
     }
   }
 }

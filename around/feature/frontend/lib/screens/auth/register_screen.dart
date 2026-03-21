@@ -74,7 +74,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     try {
       final google = GoogleSignIn(
         scopes: const ["email", "profile"],
-        serverClientId: "93446166912-o85fbrck4ss9a1kus6dir4b2b00856tu.apps.googleusercontent.com"
+        serverClientId:
+            "93446166912-o85fbrck4ss9a1kus6dir4b2b00856tu.apps.googleusercontent.com",
       );
       try {
         await google.signOut();
@@ -88,15 +89,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (auth.idToken == null || auth.idToken!.isEmpty) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showMaterialBanner(
-          ErrorBanner.build(
-            context,
-            message: "Google token is empty.",
-          ),
+          ErrorBanner.build(context, message: "Google token is empty."),
         );
         return;
       }
 
-      final success = await context.read<AuthState>().loginWithGoogle(auth.idToken!);
+      final success = await context.read<AuthState>().loginWithGoogle(
+        auth.idToken!,
+      );
       if (!mounted) return;
       if (success) {
         ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
@@ -105,10 +105,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showMaterialBanner(
-        ErrorBanner.build(
-          context,
-          message: "Google sign-in failed: $e",
-        ),
+        ErrorBanner.build(context, message: "Google sign-in failed: $e"),
       );
     } finally {
       if (mounted) {
@@ -119,6 +116,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    const base = Color(0xFF151E3F);
+
     final auth = context.watch<AuthState>();
     final disabled = auth.isLoading || _googleLoading;
 
@@ -126,193 +125,236 @@ class _RegisterScreenState extends State<RegisterScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
-        ScaffoldMessenger.of(context).showMaterialBanner(
-          ErrorBanner.build(
-            context,
-            message: auth.error!,
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showMaterialBanner(ErrorBanner.build(context, message: auth.error!));
         context.read<AuthState>().clearError();
       });
     }
 
     return Scaffold(
       appBar: AppBar(title: const Text("Sign up")),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
-          child: ListView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            children: [
-              Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      TextFormField(
-                        controller: _username,
-                        enabled: !disabled,
-                        decoration: const InputDecoration(
-                          labelText: "Username",
-                          hintText: "3-20 characters",
-                        ),
-                        textInputAction: TextInputAction.next,
-                        autofillHints: const [AutofillHints.username],
-                        validator: (v) {
-                          final s = (v ?? '').trim();
-                          if (s.isEmpty) return "Username is required";
-                          if (s.length < 3) {
-                            return "Username must be at least 3 characters";
-                          }
-                          if (s.length > 20) {
-                            return "Username must be at most 20 characters";
-                          }
-                          if (!RegExp(r'^[a-zA-Z0-9_.-]+$').hasMatch(s)) {
-                            return "Use letters, digits, ., _, -";
-                          }
-                          return null;
-                        },
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFFFF8E8), Color(0xFFF7F8FC)],
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Form(
+            key: _formKey,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            child: ListView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              children: [
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: base.withOpacity(0.1)),
                       ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _email,
-                        enabled: !disabled,
-                        decoration: const InputDecoration(
-                          labelText: "Email",
-                          hintText: "you@example.com",
-                        ),
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
-                        autofillHints: const [AutofillHints.email],
-                        validator: (v) {
-                          final s = (v ?? '').trim().toLowerCase();
-                          if (s.isEmpty) return "Email is required";
-                          if (!_isValidEmail(s)) return "Enter a valid email";
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _pass,
-                        enabled: !disabled,
-                        decoration: InputDecoration(
-                          labelText: "Password",
-                          helperText: "Min 6 chars, upper/lower letters and number",
-                          suffixIcon: IconButton(
-                            onPressed: disabled
-                                ? null
-                                : () => setState(() => _hide1 = !_hide1),
-                            icon:
-                                Icon(_hide1 ? Icons.visibility : Icons.visibility_off),
-                          ),
-                        ),
-                        obscureText: _hide1,
-                        textInputAction: TextInputAction.next,
-                        autofillHints: const [AutofillHints.newPassword],
-                        validator: (v) {
-                          final s = (v ?? '').trim();
-                          if (s.isEmpty) return "Password is required";
-                          if (!_isStrongPassword(s)) {
-                            return "Use 6+ chars with upper/lower letters and number";
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _pass2,
-                        enabled: !disabled,
-                        decoration: InputDecoration(
-                          labelText: "Confirm password",
-                          suffixIcon: IconButton(
-                            onPressed: disabled
-                                ? null
-                                : () => setState(() => _hide2 = !_hide2),
-                            icon:
-                                Icon(_hide2 ? Icons.visibility : Icons.visibility_off),
-                          ),
-                        ),
-                        obscureText: _hide2,
-                        textInputAction: TextInputAction.done,
-                        autofillHints: const [AutofillHints.newPassword],
-                        validator: (v) {
-                          final s = (v ?? '').trim();
-                          if (s.isEmpty) return "Please confirm your password";
-                          if (s != _pass.text.trim()) return "Passwords do not match";
-                          return null;
-                        },
-                        onFieldSubmitted: (_) => _submit(),
-                      ),
-                      const SizedBox(height: 18),
-                      SizedBox(
-                        height: 46,
-                        child: FilledButton(
-                          onPressed: disabled ? null : _submit,
-                          child: auth.isLoading
-                              ? const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    SizedBox(
-                                      height: 16,
-                                      width: 16,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
-                                    ),
-                                    SizedBox(width: 10),
-                                    Text("Creating..."),
-                                  ],
-                                )
-                              : const Text("Create account"),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        height: 46,
-                        child: OutlinedButton(
-                          onPressed: disabled ? null : _signInWithGoogle,
-                          child: _googleLoading
-                              ? const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    SizedBox(
-                                      height: 16,
-                                      width: 16,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
-                                    ),
-                                    SizedBox(width: 10),
-                                    Text("Connecting Google..."),
-                                  ],
-                                )
-                              : const Text("Continue with Google"),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Text("Already have an account? "),
-                          TextButton(
-                            onPressed: disabled
-                                ? null
-                                : () {
-                                    ScaffoldMessenger.of(context)
-                                        .hideCurrentMaterialBanner();
-                                    Navigator.pushReplacementNamed(
-                                      context,
-                                      Routes.login,
-                                    );
-                                  },
-                            child: const Text("Sign in"),
+                          const Text(
+                            "Create account",
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                              color: base,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "Join ARound and start exploring",
+                            style: TextStyle(color: base.withOpacity(0.72)),
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _username,
+                            enabled: !disabled,
+                            decoration: const InputDecoration(
+                              labelText: "Username",
+                              hintText: "3-20 characters",
+                            ),
+                            textInputAction: TextInputAction.next,
+                            autofillHints: const [AutofillHints.username],
+                            validator: (v) {
+                              final s = (v ?? '').trim();
+                              if (s.isEmpty) return "Username is required";
+                              if (s.length < 3) {
+                                return "Username must be at least 3 characters";
+                              }
+                              if (s.length > 20) {
+                                return "Username must be at most 20 characters";
+                              }
+                              if (!RegExp(r'^[a-zA-Z0-9_.-]+$').hasMatch(s)) {
+                                return "Use letters, digits, ., _, -";
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _email,
+                            enabled: !disabled,
+                            decoration: const InputDecoration(
+                              labelText: "Email",
+                              hintText: "you@example.com",
+                            ),
+                            keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.next,
+                            autofillHints: const [AutofillHints.email],
+                            validator: (v) {
+                              final s = (v ?? '').trim().toLowerCase();
+                              if (s.isEmpty) return "Email is required";
+                              if (!_isValidEmail(s))
+                                return "Enter a valid email";
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _pass,
+                            enabled: !disabled,
+                            decoration: InputDecoration(
+                              labelText: "Password",
+                              helperText:
+                                  "Min 6 chars, upper/lower letters and number",
+                              suffixIcon: IconButton(
+                                onPressed: disabled
+                                    ? null
+                                    : () => setState(() => _hide1 = !_hide1),
+                                icon: Icon(
+                                  _hide1
+                                      ? Icons.visibility
+                                      : Icons.visibility_off,
+                                ),
+                              ),
+                            ),
+                            obscureText: _hide1,
+                            textInputAction: TextInputAction.next,
+                            autofillHints: const [AutofillHints.newPassword],
+                            validator: (v) {
+                              final s = (v ?? '').trim();
+                              if (s.isEmpty) return "Password is required";
+                              if (!_isStrongPassword(s)) {
+                                return "Use 6+ chars with upper/lower letters and number";
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _pass2,
+                            enabled: !disabled,
+                            decoration: InputDecoration(
+                              labelText: "Confirm password",
+                              suffixIcon: IconButton(
+                                onPressed: disabled
+                                    ? null
+                                    : () => setState(() => _hide2 = !_hide2),
+                                icon: Icon(
+                                  _hide2
+                                      ? Icons.visibility
+                                      : Icons.visibility_off,
+                                ),
+                              ),
+                            ),
+                            obscureText: _hide2,
+                            textInputAction: TextInputAction.done,
+                            autofillHints: const [AutofillHints.newPassword],
+                            validator: (v) {
+                              final s = (v ?? '').trim();
+                              if (s.isEmpty)
+                                return "Please confirm your password";
+                              if (s != _pass.text.trim())
+                                return "Passwords do not match";
+                              return null;
+                            },
+                            onFieldSubmitted: (_) => _submit(),
+                          ),
+                          const SizedBox(height: 18),
+                          SizedBox(
+                            height: 46,
+                            child: FilledButton(
+                              onPressed: disabled ? null : _submit,
+                              child: auth.isLoading
+                                  ? const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        SizedBox(
+                                          height: 16,
+                                          width: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        ),
+                                        SizedBox(width: 10),
+                                        Text("Creating..."),
+                                      ],
+                                    )
+                                  : const Text("Create account"),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 46,
+                            child: OutlinedButton(
+                              onPressed: disabled ? null : _signInWithGoogle,
+                              child: _googleLoading
+                                  ? const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        SizedBox(
+                                          height: 16,
+                                          width: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        ),
+                                        SizedBox(width: 10),
+                                        Text("Connecting Google..."),
+                                      ],
+                                    )
+                                  : const Text("Continue with Google"),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text("Already have an account? "),
+                              TextButton(
+                                onPressed: disabled
+                                    ? null
+                                    : () {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).hideCurrentMaterialBanner();
+                                        Navigator.pushReplacementNamed(
+                                          context,
+                                          Routes.login,
+                                        );
+                                      },
+                                child: const Text("Sign in"),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
