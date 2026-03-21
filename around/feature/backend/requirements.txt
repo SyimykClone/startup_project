@@ -10,5 +10,8 @@ python-multipart==0.0.9
 redis==5.0.1
 passlib[bcrypt]==1.7.4
 email-validator==2.2.0
+<<<<<<< HEAD
 requests==2.32.3
+=======
+>>>>>>> 5b2b806c723c3beea8cd972564b3923c31491b68
 bcrypt==4.2.0
