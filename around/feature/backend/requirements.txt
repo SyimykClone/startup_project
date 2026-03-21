@@ -8,3 +8,5 @@ asyncpg==0.30.0
 google-auth==2.35.0
 python-multipart==0.0.9
 redis==5.0.1
+passlib[bcrypt]==1.7.4
+bcrypt==4.2.0
