@@ -7,3 +7,4 @@ python-dotenv==1.0.1
 asyncpg==0.30.0
 google-auth==2.35.0
 python-multipart==0.0.9
+redis==5.0.1
