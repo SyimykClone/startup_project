@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../core/router/app_router.dart';
 
 class AuthChoiceScreen extends StatelessWidget {
@@ -6,47 +7,102 @@ class AuthChoiceScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const accent = Color(0xFFFAA916);
+    const base = Color(0xFF151E3F);
+
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    "ARound",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 34, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 28),
-                  FractionallySizedBox(
-                    widthFactor: 0.5,
-                    child: SizedBox(
-                      height: 44,
-                      child: SizedBox(
-                        height: 44,
-                        child: FilledButton(
-                          onPressed: () => Navigator.pushNamed(context, Routes.login),
-                          child: const Text("Sign in"),
-                        ),
-                      ),                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  FractionallySizedBox(
-                    widthFactor: 0.5,
-                    child: SizedBox(
-                      height: 44,
-                      child: FilledButton(
-                        onPressed: () => Navigator.pushNamed(context, Routes.register),
-                        child: const Text("Sign up"),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFFFF6E1), Color(0xFFF7F8FC)],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 22,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(color: const Color(0xFFFFE3A7)),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x22151E3F),
+                            blurRadius: 16,
+                            offset: Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          const Text(
+                            'ARound',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 42,
+                              fontWeight: FontWeight.w900,
+                              color: base,
+                              letterSpacing: 0.4,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Explore the world around you',
+                            style: TextStyle(
+                              color: base.withOpacity(0.7),
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 26),
+                    SizedBox(
+                      height: 50,
+                      child: FilledButton.icon(
+                        onPressed: () =>
+                            Navigator.pushNamed(context, Routes.login),
+                        icon: const Icon(Icons.login_rounded),
+                        label: const Text('Sign in'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 50,
+                      child: OutlinedButton.icon(
+                        onPressed: () =>
+                            Navigator.pushNamed(context, Routes.register),
+                        icon: const Icon(Icons.person_add_alt_1_rounded),
+                        label: const Text('Sign up'),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Center(
+                      child: Container(
+                        width: 120,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: accent.withOpacity(0.55),
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

@@ -45,11 +45,101 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const accent = Color(0xFFFAA916);
+    const base = Color(0xFF151E3F);
+    const surface = Color(0xFFF7F8FC);
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'ARound',
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme:
+            ColorScheme.fromSeed(
+              seedColor: accent,
+              primary: accent,
+              secondary: base,
+              surface: Colors.white,
+            ).copyWith(
+              onPrimary: base,
+              onSecondary: Colors.white,
+              onSurface: base,
+              surface: surface,
+            ),
+        scaffoldBackgroundColor: surface,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: surface,
+          foregroundColor: base,
+          elevation: 0,
+          centerTitle: false,
+          titleTextStyle: TextStyle(
+            color: base,
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: Color(0xFFD7DDEE)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: Color(0xFFD7DDEE)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: const BorderSide(color: accent, width: 1.6),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 14,
+          ),
+          floatingLabelStyle: const TextStyle(color: base),
+        ),
+        cardTheme: CardThemeData(
+          color: Colors.white,
+          elevation: 0.8,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        textTheme: const TextTheme(
+          headlineMedium: TextStyle(
+            color: base,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.2,
+          ),
+          titleLarge: TextStyle(color: base, fontWeight: FontWeight.w700),
+          bodyLarge: TextStyle(color: base),
+          bodyMedium: TextStyle(color: base),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            backgroundColor: accent,
+            foregroundColor: base,
+            textStyle: const TextStyle(fontWeight: FontWeight.w700),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: base,
+            side: const BorderSide(color: base, width: 1.2),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          ),
+        ),
+      ),
       onGenerateRoute: AppRouter.onGenerateRoute,
-      initialRoute: Routes.auth,
+      initialRoute: Routes.splash,
     );
   }
 }

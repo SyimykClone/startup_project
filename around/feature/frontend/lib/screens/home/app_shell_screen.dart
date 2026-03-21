@@ -14,72 +14,88 @@ class AppShellScreen extends StatefulWidget {
 class _AppShellScreenState extends State<AppShellScreen> {
   int _index = 1;
 
-  static const _tabs = [
-    FavoritesScreen(),
-    MapScreen(),
-    ProfileScreen(),
-  ];
+  static const _tabs = [FavoritesScreen(), MapScreen(), ProfileScreen()];
 
   @override
   Widget build(BuildContext context) {
+    const accent = Color(0xFFFAA916);
+    const base = Color(0xFF151E3F);
+
     return Scaffold(
-      body: IndexedStack(
-        index: _index,
-        children: _tabs,
-      ),
+      body: IndexedStack(index: _index, children: _tabs),
       bottomNavigationBar: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: NavigationBarTheme(
-            data: NavigationBarThemeData(
-              height: 62,
-              labelTextStyle: WidgetStateProperty.all(
-                const TextStyle(fontSize: 0),
+        padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x25151E3F),
+                blurRadius: 16,
+                offset: Offset(0, 8),
               ),
-              indicatorColor: const Color(0xFFE8DDF5),
-              indicatorShape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: NavigationBarTheme(
+              data: NavigationBarThemeData(
+                height: 64,
+                backgroundColor: Colors.white,
+                iconTheme: WidgetStateProperty.resolveWith((states) {
+                  final selected = states.contains(WidgetState.selected);
+                  return IconThemeData(
+                    color: selected ? base : base.withOpacity(0.6),
+                  );
+                }),
+                labelTextStyle: WidgetStateProperty.all(
+                  const TextStyle(fontSize: 0),
+                ),
+                indicatorColor: accent.withOpacity(0.33),
+                indicatorShape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
-            ),
-            child: NavigationBar(
-              selectedIndex: _index,
-              onDestinationSelected: (value) => setState(() => _index = value),
-              destinations: const [
-                NavigationDestination(
-                  icon: Padding(
-                    padding: EdgeInsets.only(top: 4),
-                    child: Icon(Icons.favorite_border, size: 22),
+              child: NavigationBar(
+                selectedIndex: _index,
+                onDestinationSelected: (value) =>
+                    setState(() => _index = value),
+                destinations: const [
+                  NavigationDestination(
+                    icon: Padding(
+                      padding: EdgeInsets.only(top: 4),
+                      child: Icon(Icons.favorite_border, size: 22),
+                    ),
+                    selectedIcon: Padding(
+                      padding: EdgeInsets.only(top: 4),
+                      child: Icon(Icons.favorite, size: 24),
+                    ),
+                    label: '',
                   ),
-                  selectedIcon: Padding(
-                    padding: EdgeInsets.only(top: 4),
-                    child: Icon(Icons.favorite, size: 24),
+                  NavigationDestination(
+                    icon: Padding(
+                      padding: EdgeInsets.only(top: 4),
+                      child: Icon(Icons.photo_camera_outlined, size: 22),
+                    ),
+                    selectedIcon: Padding(
+                      padding: EdgeInsets.only(top: 4),
+                      child: Icon(Icons.photo_camera, size: 24),
+                    ),
+                    label: '',
                   ),
-                  label: "",
-                ),
-                NavigationDestination(
-                  icon: Padding(
-                    padding: EdgeInsets.only(top: 4),
-                    child: Icon(Icons.photo_camera_outlined, size: 22),
+                  NavigationDestination(
+                    icon: Padding(
+                      padding: EdgeInsets.only(top: 4),
+                      child: Icon(Icons.person_outline, size: 22),
+                    ),
+                    selectedIcon: Padding(
+                      padding: EdgeInsets.only(top: 4),
+                      child: Icon(Icons.person, size: 24),
+                    ),
+                    label: '',
                   ),
-                  selectedIcon: Padding(
-                    padding: EdgeInsets.only(top: 4),
-                    child: Icon(Icons.photo_camera, size: 24),
-                  ),
-                  label: "",
-                ),
-                NavigationDestination(
-                  icon: Padding(
-                    padding: EdgeInsets.only(top: 4),
-                    child: Icon(Icons.person_outline, size: 22),
-                  ),
-                  selectedIcon: Padding(
-                    padding: EdgeInsets.only(top: 4),
-                    child: Icon(Icons.person, size: 24),
-                  ),
-                  label: "",
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

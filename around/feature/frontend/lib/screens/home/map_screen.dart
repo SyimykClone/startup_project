@@ -23,6 +23,9 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
+  static const _accent = Color(0xFFFAA916);
+  static const _base = Color(0xFF151E3F);
+
   MapboxMap? _map;
   PointAnnotationManager? _pointManager;
   PolylineAnnotationManager? _polylineManager;
@@ -61,7 +64,8 @@ class _MapScreenState extends State<MapScreen> {
   Future<void> _onMapCreated(MapboxMap mapboxMap) async {
     _map = mapboxMap;
     _pointManager = await _map!.annotations.createPointAnnotationManager();
-    _polylineManager = await _map!.annotations.createPolylineAnnotationManager();
+    _polylineManager = await _map!.annotations
+        .createPolylineAnnotationManager();
 
     _pointManager!.addOnPointAnnotationClickListener(
       _PoiClickListener((annotation) async {
@@ -87,10 +91,7 @@ class _MapScreenState extends State<MapScreen> {
     _userPos = Position(pos.longitude, pos.latitude);
 
     await _map?.flyTo(
-      CameraOptions(
-        center: Point(coordinates: _userPos!),
-        zoom: 14,
-      ),
+      CameraOptions(center: Point(coordinates: _userPos!), zoom: 14),
       MapAnimationOptions(duration: 800),
     );
   }
@@ -143,7 +144,7 @@ class _MapScreenState extends State<MapScreen> {
   Future<void> _buildAndDrawRoute(Poi poi) async {
     final routeState = context.read<RouteState>();
     if (_userPos == null) {
-      routeState.fail("User location not found");
+      routeState.fail('User location not found');
       return;
     }
 
@@ -155,7 +156,7 @@ class _MapScreenState extends State<MapScreen> {
         fromLng: _userPos!.lng.toDouble(),
         toLat: poi.latitude,
         toLng: poi.longitude,
-        profile: "walking",
+        profile: 'walking',
       );
 
       final resp = await _routeService.buildRoute(req);
@@ -165,14 +166,14 @@ class _MapScreenState extends State<MapScreen> {
       String msg = e.toString();
       if (e is DioException) {
         final data = e.response?.data;
-        if (data is Map && data["detail"] != null) {
-          msg = data["detail"].toString();
+        if (data is Map && data['detail'] != null) {
+          msg = data['detail'].toString();
         } else if (data is String && data.isNotEmpty) {
           msg = data;
         } else if (e.message != null && e.message!.isNotEmpty) {
           msg = e.message!;
         } else if (e.response?.statusCode != null) {
-          msg = "Request failed (${e.response!.statusCode})";
+          msg = 'Request failed (${e.response!.statusCode})';
         }
       }
       routeState.fail(msg);
@@ -183,20 +184,18 @@ class _MapScreenState extends State<MapScreen> {
     if (_polylineManager == null) return;
     await _polylineManager!.deleteAll();
 
-    final coords = (resp.geometry["coordinates"] as List)
+    final coords = (resp.geometry['coordinates'] as List)
         .map((c) => c as List)
         .map(
-          (c) => Position(
-            (c[0] as num).toDouble(),
-            (c[1] as num).toDouble(),
-          ),
+          (c) => Position((c[0] as num).toDouble(), (c[1] as num).toDouble()),
         )
         .toList();
 
     await _polylineManager!.create(
       PolylineAnnotationOptions(
         geometry: LineString(coordinates: coords),
-        lineWidth: 4.0,
+        lineWidth: 4.4,
+        lineColor: _base.value,
       ),
     );
   }
@@ -211,43 +210,68 @@ class _MapScreenState extends State<MapScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        const Expanded(
-                          child: TextField(
-                            readOnly: true,
-                            decoration: InputDecoration(
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding: EdgeInsets.zero,
-                              hintText: "Моё местоположение",
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: _base.withOpacity(0.12)),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x14151E3F),
+                    blurRadius: 10,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.my_location, size: 18, color: _base),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'My location',
+                          style: TextStyle(
+                            color: _base,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: _openPoiPicker,
+                        color: _base,
+                        icon: const Icon(Icons.list),
+                      ),
+                    ],
+                  ),
+                  Divider(height: 8, color: _base.withOpacity(0.14)),
+                  Row(
+                    children: [
+                      const Icon(Icons.place_outlined, size: 18, color: _base),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: _openPoiPicker,
+                          child: Text(
+                            _selectedPoi == null
+                                ? 'Where to?'
+                                : _selectedPoi!.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: _selectedPoi == null
+                                  ? _base.withOpacity(0.6)
+                                  : _base,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
-                        IconButton(
-                          onPressed: _openPoiPicker,
-                          icon: const Icon(Icons.list),
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 6),
-                    TextField(
-                      readOnly: true,
-                      onTap: _openPoiPicker,
-                      decoration: InputDecoration(
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
-                        hintText: _selectedPoi == null ? "Куда" : _selectedPoi!.name,
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),
@@ -255,7 +279,7 @@ class _MapScreenState extends State<MapScreen> {
             child: Stack(
               children: [
                 MapWidget(
-                  key: const ValueKey("mapWidget"),
+                  key: const ValueKey('mapWidget'),
                   cameraOptions: CameraOptions(
                     center: Point(coordinates: Position(75.289289, 42.828912)),
                     zoom: 12,
@@ -266,49 +290,82 @@ class _MapScreenState extends State<MapScreen> {
                   left: 10,
                   right: 10,
                   bottom: 10,
-                  child: Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (poiState.loading) const LinearProgressIndicator(),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  _selectedPoi == null
-                                      ? "Выберите точку назначения"
-                                      : "Выбрано: ${_selectedPoi!.name}",
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: _base.withOpacity(0.12)),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x1F151E3F),
+                          blurRadius: 14,
+                          offset: Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (poiState.loading)
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 8),
+                            child: LinearProgressIndicator(),
+                          ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _selectedPoi == null
+                                    ? 'Select destination point'
+                                    : 'Selected: ${_selectedPoi!.name}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: _base,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              ElevatedButton(
-                                onPressed: (_selectedPoi == null || routeState.loading)
-                                    ? null
-                                    : () => _buildAndDrawRoute(_selectedPoi!),
-                                child: const Text("Маршрут"),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _accent,
+                                foregroundColor: _base,
+                                textStyle: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
-                            ],
+                              onPressed:
+                                  (_selectedPoi == null || routeState.loading)
+                                  ? null
+                                  : () => _buildAndDrawRoute(_selectedPoi!),
+                              child: const Text('Build route'),
+                            ),
+                          ],
+                        ),
+                        if (routeState.route != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Distance: ${routeState.route!.distanceM.toStringAsFixed(0)} m, '
+                            'Time: ${(routeState.route!.durationS / 60).toStringAsFixed(1)} min',
+                            style: const TextStyle(
+                              color: _base,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                          if (routeState.route != null) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              "Дистанция: ${routeState.route!.distanceM.toStringAsFixed(0)} м, "
-                              "Время: ${(routeState.route!.durationS / 60).toStringAsFixed(1)} мин",
-                            ),
-                          ],
-                          if (routeState.error != null) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              "Ошибка: ${routeState.error}",
-                              style: const TextStyle(color: Colors.red),
-                            ),
-                          ],
                         ],
-                      ),
+                        if (routeState.error != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Error: ${routeState.error}',
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ),
