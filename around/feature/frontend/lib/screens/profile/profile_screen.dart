@@ -1,17 +1,75 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/config/app_config.dart';
+import '../../core/network/api_client.dart';
 import '../../core/router/app_router.dart';
+import '../../models/poi.dart';
+import '../../services/poi_service.dart';
 import '../../state/auth_state.dart';
 
-class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({super.key});
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key, required this.refreshTick});
+
+  final int refreshTick;
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  static const accent = Color(0xFFFAA916);
+  static const base = Color(0xFF151E3F);
+
+  late PoiService _poiService;
+  bool _initialized = false;
+  List<Poi> _visited = [];
+  bool _loadingVisited = false;
+  String? _visitedError;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_initialized) return;
+    _initialized = true;
+
+    final cfg = context.read<AppConfig>();
+    final token = context.read<AuthState>().token;
+    _poiService = PoiService(
+      ApiClient(cfg.apiBaseUrl, token: token),
+      useMock: cfg.useMock,
+    );
+
+    _loadVisited();
+  }
+
+  @override
+  void didUpdateWidget(covariant ProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshTick != widget.refreshTick) {
+      _loadVisited();
+    }
+  }
+
+  Future<void> _loadVisited() async {
+    setState(() {
+      _loadingVisited = true;
+      _visitedError = null;
+    });
+    try {
+      final data = await _poiService.fetchVisited();
+      if (!mounted) return;
+      setState(() => _visited = data);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _visitedError = e.toString());
+    } finally {
+      if (mounted) setState(() => _loadingVisited = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    const accent = Color(0xFFFAA916);
-    const base = Color(0xFF151E3F);
-
     final auth = context.watch<AuthState>();
     final username = auth.username ?? 'user';
     final avatarUrl = auth.avatarUrl;
@@ -28,13 +86,6 @@ class ProfileScreen extends StatelessWidget {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(color: base.withOpacity(0.1)),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x14151E3F),
-                    blurRadius: 10,
-                    offset: Offset(0, 4),
-                  ),
-                ],
               ),
               child: Row(
                 children: [
@@ -85,98 +136,130 @@ class ProfileScreen extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 22),
-            const Text(
-              'Посещенные места',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-                color: base,
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 200,
-              child: GridView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: 6,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 14,
-                  mainAxisSpacing: 14,
-                  childAspectRatio: 1,
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Посещенные места',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: base,
+                    ),
+                  ),
                 ),
-                itemBuilder: (_, __) {
-                  return _CircleItem(
-                    icon: Icons.place_outlined,
-                    iconColor: base,
-                    borderColor: base.withOpacity(0.2),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Достижения',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-                color: base,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: GridView.builder(
-                itemCount: 6,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 14,
-                  mainAxisSpacing: 14,
-                  childAspectRatio: 1,
+                IconButton(
+                  onPressed: _loadingVisited ? null : _loadVisited,
+                  icon: const Icon(Icons.refresh, color: base),
                 ),
-                itemBuilder: (_, __) {
-                  return _CircleItem(
-                    icon: Icons.workspace_premium_outlined,
-                    iconColor: accent,
-                    borderColor: accent.withOpacity(0.45),
-                  );
-                },
-              ),
+              ],
             ),
+            const SizedBox(height: 10),
+            if (_loadingVisited)
+              const Expanded(child: Center(child: CircularProgressIndicator()))
+            else if (_visitedError != null)
+              Expanded(
+                child: Center(
+                  child: Text(
+                    'Ошибка загрузки: $_visitedError',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              )
+            else if (_visited.isEmpty)
+              const Expanded(
+                child: Center(
+                  child: Text(
+                    'Пока нет посещенных мест',
+                    style: TextStyle(color: base, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              )
+            else
+              Expanded(
+                child: ListView.separated(
+                  itemCount: _visited.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (_, i) {
+                    final poi = _visited[i];
+                    return Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: base.withOpacity(0.18)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEFF3FF),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.place_outlined,
+                              color: base,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  poi.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: base,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  poi.description,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: base.withOpacity(0.65),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF3D9),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text(
+                              'Посещено',
+                              style: TextStyle(
+                                color: base,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _CircleItem extends StatelessWidget {
-  const _CircleItem({
-    required this.icon,
-    required this.iconColor,
-    required this.borderColor,
-  });
-
-  final IconData icon;
-  final Color iconColor;
-  final Color borderColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.white,
-        border: Border.all(color: borderColor, width: 1.2),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x14151E3F),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Icon(icon, size: 22, color: iconColor),
     );
   }
 }
