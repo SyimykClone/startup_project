@@ -3,6 +3,17 @@ from app.core.db import get_pool
 from app.models.poi import Poi
 
 
+def _poi_from_row(row) -> Poi:
+    return Poi(
+        id=row["id"],
+        name=row["name"],
+        description=row["description"],
+        latitude=row["latitude"],
+        longitude=row["longitude"],
+        category=row["category"],
+    )
+
+
 async def list_poi() -> List[Poi]:
     pool = get_pool()
     async with pool.acquire() as conn:
@@ -10,10 +21,11 @@ async def list_poi() -> List[Poi]:
             """
             SELECT id, name, description, latitude, longitude, category
             FROM poi
+            WHERE source = 'seed'
             ORDER BY id
             """
         )
-    return [Poi(**dict(r)) for r in rows]
+    return [_poi_from_row(r) for r in rows]
 
 
 async def get_poi(poi_id: int) -> Optional[Poi]:
@@ -27,7 +39,67 @@ async def get_poi(poi_id: int) -> Optional[Poi]:
             """,
             poi_id,
         )
-    return Poi(**dict(row)) if row else None
+    return _poi_from_row(row) if row else None
+
+
+async def get_accessible_poi(poi_id: int, users_id: int) -> Optional[Poi]:
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT id, name, description, latitude, longitude, category
+            FROM poi
+            WHERE id = $1
+              AND (
+                source = 'seed'
+                OR created_by_users_id = $2
+              )
+            """,
+            poi_id,
+            users_id,
+        )
+    return _poi_from_row(row) if row else None
+
+
+async def create_custom_poi_from_coordinates(
+    users_id: int,
+    name: str,
+    description: str,
+    lat: float,
+    lng: float,
+    google_place_id: str | None = None,
+) -> Poi:
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            INSERT INTO poi (
+                name,
+                description,
+                latitude,
+                longitude,
+                category,
+                source,
+                created_by_users_id,
+                google_place_id
+            )
+            VALUES (
+                $1, $2, $3, $4,
+                'custom',
+                'custom',
+                $5,
+                $6
+            )
+            RETURNING id, name, description, latitude, longitude, category
+            """,
+            name,
+            description,
+            lat,
+            lng,
+            users_id,
+            google_place_id,
+        )
+    return _poi_from_row(row)
 
 
 async def list_favorite_poi(users_id: int) -> List[Poi]:
@@ -39,11 +111,15 @@ async def list_favorite_poi(users_id: int) -> List[Poi]:
             FROM users_favorite_poi fp
             JOIN poi p ON p.id = fp.poi_id
             WHERE fp.users_id = $1
+              AND (
+                p.source = 'seed'
+                OR p.created_by_users_id = $1
+              )
             ORDER BY fp.created_at DESC
             """,
             users_id,
         )
-    return [Poi(**dict(r)) for r in rows]
+    return [_poi_from_row(r) for r in rows]
 
 
 async def add_favorite_poi(users_id: int, poi_id: int) -> None:
@@ -84,11 +160,15 @@ async def list_visited_poi(users_id: int) -> List[Poi]:
             FROM users_visited_poi vp
             JOIN poi p ON p.id = vp.poi_id
             WHERE vp.users_id = $1
+              AND (
+                p.source = 'seed'
+                OR p.created_by_users_id = $1
+              )
             ORDER BY vp.visited_at DESC
             """,
             users_id,
         )
-    return [Poi(**dict(r)) for r in rows]
+    return [_poi_from_row(r) for r in rows]
 
 
 async def mark_poi_visited(users_id: int, poi_id: int) -> None:

@@ -1,4 +1,5 @@
 import httpx
+import re
 from app.core.config import settings
 from app.models.route import RouteRequest, RouteResponse
 
@@ -55,8 +56,48 @@ def _to_google_mode(profile: str) -> str:
         "walking": "walking",
         "driving": "driving",
         "cycling": "bicycling",
+        "transit": "transit",
     }
     return mapping.get(profile, "walking")
+
+
+def _pick_best_name_from_results(results: list[dict], fallback: str) -> str:
+    # Prefer human-friendly names over technical ids/plus codes.
+    preferred_types = [
+        "point_of_interest",
+        "establishment",
+        "premise",
+        "subpremise",
+        "route",
+        "neighborhood",
+        "locality",
+        "administrative_area_level_2",
+        "administrative_area_level_1",
+        "country",
+    ]
+
+    for preferred in preferred_types:
+        for result in results:
+            for component in result.get("address_components", []):
+                types = component.get("types", [])
+                name = (component.get("long_name") or "").strip()
+                if preferred in types and name:
+                    return name
+
+    formatted = (results[0].get("formatted_address") or "").strip() if results else ""
+    if formatted:
+        # "улица ... , город, страна" -> take the readable first segment
+        first = formatted.split(",")[0].strip()
+        if first:
+            return first
+
+    return fallback
+
+
+def _looks_like_code(value: str) -> bool:
+    v = value.strip().upper()
+    # e.g. "8Q7X+5R" / "7G3Q+9M TOKMOK"
+    return bool(re.match(r"^[A-Z0-9+\s-]{5,}$", v))
 
 
 async def geocode(address: str, language: str = "ru") -> dict:
@@ -83,6 +124,61 @@ async def geocode(address: str, language: str = "ru") -> dict:
         "lat": float(loc["lat"]),
         "lng": float(loc["lng"]),
         "formatted_address": first.get("formatted_address"),
+        "place_id": first.get("place_id"),
+    }
+
+
+async def reverse_geocode(lat: float, lng: float, language: str = "ru") -> dict:
+    key = _require_api_key()
+
+    url = "https://maps.googleapis.com/maps/api/geocode/json"
+    params = {
+        "latlng": f"{lat},{lng}",
+        "language": language,
+        "result_type": "street_address|premise|point_of_interest|route|locality",
+        "key": key,
+    }
+
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        res = await client.get(url, params=params)
+        if res.status_code != 200:
+            raise GoogleMapsError(
+                f"Reverse geocoding HTTP error {res.status_code}: {res.text}"
+            )
+        data = res.json()
+
+    status = data.get("status")
+    if status == "ZERO_RESULTS":
+        return {
+            "lat": lat,
+            "lng": lng,
+            "name": "Pinned point",
+            "formatted_address": f"{lat:.5f}, {lng:.5f}",
+            "place_id": None,
+        }
+    if status != "OK":
+        raise GoogleMapsError(f"Reverse geocoding failed: {status}")
+
+    results = data.get("results", [])
+    first = results[0]
+    plus_code = data.get("plus_code", {}).get("compound_code")
+    default_name = "Pinned point"
+    name = _pick_best_name_from_results(results, default_name)
+    if _looks_like_code(name):
+        formatted = (first.get("formatted_address") or "").strip()
+        first_part = formatted.split(",")[0].strip() if formatted else ""
+        if first_part and not _looks_like_code(first_part):
+            name = first_part
+        else:
+            name = "Pinned point"
+
+    return {
+        "lat": lat,
+        "lng": lng,
+        "name": name,
+        "formatted_address": first.get("formatted_address")
+        or plus_code
+        or f"{lat:.5f}, {lng:.5f}",
         "place_id": first.get("place_id"),
     }
 

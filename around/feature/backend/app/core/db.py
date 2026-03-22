@@ -15,8 +15,6 @@ async def connect_db() -> None:
         min_size=1,
         max_size=5,
         command_timeout=10,
-        # Supabase transaction pooler (pgbouncer) is incompatible with
-        # asyncpg prepared statement cache.
         statement_cache_size=0,
     )
 
