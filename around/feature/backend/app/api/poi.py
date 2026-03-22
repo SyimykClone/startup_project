@@ -1,15 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List
-from app.models.poi import Poi
+from app.models.poi import CustomPoiFromCoordinatesIn, Poi
 from app.services.poi_repo import (
     add_favorite_poi,
-    get_poi,
+    create_custom_poi_from_coordinates,
+    get_accessible_poi,
     list_favorite_poi,
     list_poi,
     list_visited_poi,
     mark_poi_visited,
     remove_favorite_poi,
 )
+from app.services.google_maps_service import GoogleMapsError, reverse_geocode
 from app.deps.auth import require_auth
 
 router = APIRouter(
@@ -30,7 +32,7 @@ async def favorites_list(user_id: int = Depends(require_auth)):
 
 @router.post("/favorites/{poi_id}", status_code=204)
 async def favorites_add(poi_id: int, user_id: int = Depends(require_auth)):
-    poi = await get_poi(poi_id)
+    poi = await get_accessible_poi(poi_id, user_id)
     if not poi:
         raise HTTPException(status_code=404, detail="POI not found")
 
@@ -53,7 +55,7 @@ async def visited_list(user_id: int = Depends(require_auth)):
 
 @router.post("/visited/{poi_id}", status_code=204)
 async def visited_add(poi_id: int, user_id: int = Depends(require_auth)):
-    poi = await get_poi(poi_id)
+    poi = await get_accessible_poi(poi_id, user_id)
     if not poi:
         raise HTTPException(status_code=404, detail="POI not found")
 
@@ -62,8 +64,31 @@ async def visited_add(poi_id: int, user_id: int = Depends(require_auth)):
 
 
 @router.get("/{poi_id}", response_model=Poi)
-async def poi_detail(poi_id: int, _user_id: int = Depends(require_auth)):
-    poi = await get_poi(poi_id)
+async def poi_detail(poi_id: int, user_id: int = Depends(require_auth)):
+    poi = await get_accessible_poi(poi_id, user_id)
     if not poi:
         raise HTTPException(status_code=404, detail="POI not found")
     return poi
+
+
+@router.post("/custom/from-coordinates", response_model=Poi)
+async def poi_create_custom_from_coordinates(
+    payload: CustomPoiFromCoordinatesIn,
+    user_id: int = Depends(require_auth),
+):
+    try:
+        place = await reverse_geocode(
+            lat=payload.lat,
+            lng=payload.lng,
+            language=payload.language,
+        )
+        return await create_custom_poi_from_coordinates(
+            users_id=user_id,
+            name=place["name"],
+            description=place["formatted_address"],
+            lat=payload.lat,
+            lng=payload.lng,
+            google_place_id=place.get("place_id"),
+        )
+    except GoogleMapsError as e:
+        raise HTTPException(status_code=400, detail=str(e))

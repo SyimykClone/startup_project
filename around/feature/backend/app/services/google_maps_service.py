@@ -55,6 +55,7 @@ def _to_google_mode(profile: str) -> str:
         "walking": "walking",
         "driving": "driving",
         "cycling": "bicycling",
+        "transit": "transit",
     }
     return mapping.get(profile, "walking")
 
@@ -83,6 +84,56 @@ async def geocode(address: str, language: str = "ru") -> dict:
         "lat": float(loc["lat"]),
         "lng": float(loc["lng"]),
         "formatted_address": first.get("formatted_address"),
+        "place_id": first.get("place_id"),
+    }
+
+
+async def reverse_geocode(lat: float, lng: float, language: str = "ru") -> dict:
+    key = _require_api_key()
+
+    url = "https://maps.googleapis.com/maps/api/geocode/json"
+    params = {
+        "latlng": f"{lat},{lng}",
+        "language": language,
+        "result_type": "street_address|premise|point_of_interest|route|locality",
+        "key": key,
+    }
+
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        res = await client.get(url, params=params)
+        if res.status_code != 200:
+            raise GoogleMapsError(
+                f"Reverse geocoding HTTP error {res.status_code}: {res.text}"
+            )
+        data = res.json()
+
+    status = data.get("status")
+    if status == "ZERO_RESULTS":
+        return {
+            "lat": lat,
+            "lng": lng,
+            "name": "Pinned point",
+            "formatted_address": f"{lat:.5f}, {lng:.5f}",
+            "place_id": None,
+        }
+    if status != "OK":
+        raise GoogleMapsError(f"Reverse geocoding failed: {status}")
+
+    first = data["results"][0]
+    plus_code = data.get("plus_code", {}).get("compound_code")
+    name = (
+        first.get("address_components", [{}])[0].get("long_name")
+        if first.get("address_components")
+        else None
+    )
+
+    return {
+        "lat": lat,
+        "lng": lng,
+        "name": name or first.get("formatted_address") or "Pinned point",
+        "formatted_address": first.get("formatted_address")
+        or plus_code
+        or f"{lat:.5f}, {lng:.5f}",
         "place_id": first.get("place_id"),
     }
 

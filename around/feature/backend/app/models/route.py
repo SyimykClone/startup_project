@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Dict, Any, Literal
 
 
-Profile = Literal["walking", "driving", "cycling"]
+Profile = Literal["walking", "driving", "cycling", "transit"]
 
 
 class RouteRequest(BaseModel):

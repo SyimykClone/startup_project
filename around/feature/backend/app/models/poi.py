@@ -9,3 +9,9 @@ class Poi(BaseModel):
     latitude: float
     longitude: float
     category: Optional[str] = None
+
+
+class CustomPoiFromCoordinatesIn(BaseModel):
+    lat: float
+    lng: float
+    language: str = "ru"
