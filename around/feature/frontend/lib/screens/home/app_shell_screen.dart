@@ -13,8 +13,8 @@ class AppShellScreen extends StatefulWidget {
 
 class _AppShellScreenState extends State<AppShellScreen> {
   int _index = 1;
-
-  static const _tabs = [FavoritesScreen(), MapScreen(), ProfileScreen()];
+  int _favoritesRefreshTick = 0;
+  int _profileRefreshTick = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +22,14 @@ class _AppShellScreenState extends State<AppShellScreen> {
     const base = Color(0xFF151E3F);
 
     return Scaffold(
-      body: IndexedStack(index: _index, children: _tabs),
+      body: IndexedStack(
+        index: _index,
+        children: [
+          FavoritesScreen(refreshTick: _favoritesRefreshTick),
+          const MapScreen(),
+          ProfileScreen(refreshTick: _profileRefreshTick),
+        ],
+      ),
       bottomNavigationBar: Padding(
         padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
         child: DecoratedBox(
@@ -58,8 +65,11 @@ class _AppShellScreenState extends State<AppShellScreen> {
               ),
               child: NavigationBar(
                 selectedIndex: _index,
-                onDestinationSelected: (value) =>
-                    setState(() => _index = value),
+                onDestinationSelected: (value) => setState(() {
+                  _index = value;
+                  if (value == 0) _favoritesRefreshTick++;
+                  if (value == 2) _profileRefreshTick++;
+                }),
                 destinations: const [
                   NavigationDestination(
                     icon: Padding(

@@ -25,7 +25,7 @@ class RouteService {
       );
     }
 
-    final res = await api.dio.post('/api/route', data: req.toJson());
+    final res = await api.dio.post('/api/google/directions', data: req.toJson());
     return RouteResponse.fromJson((res.data as Map).cast<String, dynamic>());
   }
 }

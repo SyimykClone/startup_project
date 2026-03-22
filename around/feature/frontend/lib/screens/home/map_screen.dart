@@ -1,7 +1,7 @@
 import 'package:around/state/auth_state.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/config/app_config.dart';
@@ -26,18 +26,20 @@ class _MapScreenState extends State<MapScreen> {
   static const _accent = Color(0xFFFAA916);
   static const _base = Color(0xFF151E3F);
 
-  MapboxMap? _map;
-  PointAnnotationManager? _pointManager;
-  PolylineAnnotationManager? _polylineManager;
+  GoogleMapController? _map;
 
   late PoiService _poiService;
   late RouteService _routeService;
   final _location = LocationService();
 
-  Position? _userPos;
+  LatLng? _userPos;
   Poi? _selectedPoi;
 
-  final Map<String, Poi> _poiByAnnotationId = {};
+  final Map<MarkerId, Poi> _poiByMarkerId = {};
+  final Set<int> _favoritePoiIds = <int>{};
+  Set<Marker> _markers = <Marker>{};
+  Set<Polyline> _polylines = <Polyline>{};
+
   bool _servicesInitialized = false;
 
   @override
@@ -48,8 +50,6 @@ class _MapScreenState extends State<MapScreen> {
     _servicesInitialized = true;
 
     final cfg = context.read<AppConfig>();
-    MapboxOptions.setAccessToken(cfg.mapboxToken);
-
     final token = context.read<AuthState>().token;
     _poiService = PoiService(
       ApiClient(cfg.apiBaseUrl, token: token),
@@ -61,25 +61,11 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  Future<void> _onMapCreated(MapboxMap mapboxMap) async {
-    _map = mapboxMap;
-    _pointManager = await _map!.annotations.createPointAnnotationManager();
-    _polylineManager = await _map!.annotations
-        .createPolylineAnnotationManager();
-
-    _pointManager!.addOnPointAnnotationClickListener(
-      _PoiClickListener((annotation) async {
-        final poi = _poiByAnnotationId[annotation.id];
-        if (poi == null) return;
-        setState(() => _selectedPoi = poi);
-        if (_userPos != null) {
-          await _buildAndDrawRoute(poi);
-        }
-      }),
-    );
-
+  Future<void> _onMapCreated(GoogleMapController controller) async {
+    _map = controller;
     await _loadUserLocation();
     await _loadPoiAndDrawMarkers();
+    await _loadFavorites();
 
     if (_selectedPoi != null && _userPos != null) {
       await _buildAndDrawRoute(_selectedPoi!);
@@ -88,12 +74,9 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _loadUserLocation() async {
     final pos = await _location.getCurrentPosition();
-    _userPos = Position(pos.longitude, pos.latitude);
+    _userPos = LatLng(pos.latitude, pos.longitude);
 
-    await _map?.flyTo(
-      CameraOptions(center: Point(coordinates: _userPos!), zoom: 14),
-      MapAnimationOptions(duration: 800),
-    );
+    await _map?.animateCamera(CameraUpdate.newLatLngZoom(_userPos!, 14));
   }
 
   Future<void> _openPoiPicker() async {
@@ -114,7 +97,7 @@ class _MapScreenState extends State<MapScreen> {
     try {
       final list = await _poiService.fetchPoiList();
       poiState.setPoi(list);
-      await _drawPoiMarkers(list);
+      _drawPoiMarkers(list);
     } catch (e) {
       poiState.setError(e.toString());
     } finally {
@@ -122,22 +105,44 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  Future<void> _drawPoiMarkers(List<Poi> list) async {
-    if (_pointManager == null) return;
+  Future<void> _loadFavorites() async {
+    try {
+      final favorites = await _poiService.fetchFavorites();
+      if (!mounted) return;
+      setState(() {
+        _favoritePoiIds
+          ..clear()
+          ..addAll(favorites.map((p) => p.id));
+      });
+    } catch (_) {
+      // keep map usable even if favorites endpoint failed
+    }
+  }
 
-    await _pointManager!.deleteAll();
-    _poiByAnnotationId.clear();
+  void _drawPoiMarkers(List<Poi> list) {
+    final markers = <Marker>{};
+    _poiByMarkerId.clear();
 
     for (final p in list) {
-      final ann = await _pointManager!.create(
-        PointAnnotationOptions(
-          geometry: Point(coordinates: Position(p.longitude, p.latitude)),
-          textField: p.name,
-          textOffset: [0, -2],
-          textSize: 12,
+      final markerId = MarkerId('poi_${p.id}');
+      _poiByMarkerId[markerId] = p;
+      markers.add(
+        Marker(
+          markerId: markerId,
+          position: LatLng(p.latitude, p.longitude),
+          infoWindow: InfoWindow(title: p.name),
+          onTap: () async {
+            setState(() => _selectedPoi = p);
+            if (_userPos != null) {
+              await _buildAndDrawRoute(p);
+            }
+          },
         ),
       );
-      _poiByAnnotationId[ann.id] = p;
+    }
+
+    if (mounted) {
+      setState(() => _markers = markers);
     }
   }
 
@@ -152,8 +157,8 @@ class _MapScreenState extends State<MapScreen> {
 
     try {
       final req = RouteRequest(
-        fromLat: _userPos!.lat.toDouble(),
-        fromLng: _userPos!.lng.toDouble(),
+        fromLat: _userPos!.latitude,
+        fromLng: _userPos!.longitude,
         toLat: poi.latitude,
         toLng: poi.longitude,
         profile: 'walking',
@@ -161,9 +166,10 @@ class _MapScreenState extends State<MapScreen> {
 
       final resp = await _routeService.buildRoute(req);
       routeState.setRoute(resp);
-      await _drawRoute(resp);
+      await _poiService.markVisited(poi.id);
+      _drawRoute(resp);
     } catch (e) {
-      String msg = e.toString();
+      var msg = e.toString();
       if (e is DioException) {
         final data = e.response?.data;
         if (data is Map && data['detail'] != null) {
@@ -180,30 +186,30 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  Future<void> _drawRoute(RouteResponse resp) async {
-    if (_polylineManager == null) return;
-    await _polylineManager!.deleteAll();
-
+  void _drawRoute(RouteResponse resp) {
     final coords = (resp.geometry['coordinates'] as List)
         .map((c) => c as List)
-        .map(
-          (c) => Position((c[0] as num).toDouble(), (c[1] as num).toDouble()),
-        )
+        .map((c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()))
         .toList();
 
-    await _polylineManager!.create(
-      PolylineAnnotationOptions(
-        geometry: LineString(coordinates: coords),
-        lineWidth: 4.4,
-        lineColor: _base.value,
-      ),
-    );
+    setState(() {
+      _polylines = {
+        Polyline(
+          polylineId: const PolylineId('route'),
+          points: coords,
+          width: 5,
+          color: _base,
+        ),
+      };
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final poiState = context.watch<PoiState>();
     final routeState = context.watch<RouteState>();
+    final isFavorite =
+        _selectedPoi != null && _favoritePoiIds.contains(_selectedPoi!.id);
 
     return SafeArea(
       child: Column(
@@ -278,12 +284,16 @@ class _MapScreenState extends State<MapScreen> {
           Expanded(
             child: Stack(
               children: [
-                MapWidget(
-                  key: const ValueKey('mapWidget'),
-                  cameraOptions: CameraOptions(
-                    center: Point(coordinates: Position(75.289289, 42.828912)),
+                GoogleMap(
+                  initialCameraPosition: const CameraPosition(
+                    target: LatLng(42.828912, 75.289289),
                     zoom: 12,
                   ),
+                  myLocationEnabled: true,
+                  myLocationButtonEnabled: true,
+                  zoomControlsEnabled: false,
+                  markers: _markers,
+                  polylines: _polylines,
                   onMapCreated: _onMapCreated,
                 ),
                 Positioned(
@@ -342,6 +352,49 @@ class _MapScreenState extends State<MapScreen> {
                                   : () => _buildAndDrawRoute(_selectedPoi!),
                               child: const Text('Build route'),
                             ),
+                            const SizedBox(width: 6),
+                            IconButton(
+                              onPressed: _selectedPoi == null
+                                  ? null
+                                  : () async {
+                                      final poi = _selectedPoi!;
+                                      try {
+                                        if (_favoritePoiIds.contains(poi.id)) {
+                                          await _poiService.removeFavorite(
+                                            poi.id,
+                                          );
+                                          if (!mounted) return;
+                                          setState(
+                                            () =>
+                                                _favoritePoiIds.remove(poi.id),
+                                          );
+                                        } else {
+                                          await _poiService.addFavorite(poi.id);
+                                          if (!mounted) return;
+                                          setState(
+                                            () => _favoritePoiIds.add(poi.id),
+                                          );
+                                        }
+                                      } catch (e) {
+                                        if (!mounted) return;
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              'Favorite action failed: $e',
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    },
+                              icon: Icon(
+                                isFavorite
+                                    ? Icons.favorite
+                                    : Icons.favorite_border_outlined,
+                                color: isFavorite ? _accent : _base,
+                              ),
+                            ),
                           ],
                         ),
                         if (routeState.route != null) ...[
@@ -375,15 +428,5 @@ class _MapScreenState extends State<MapScreen> {
         ],
       ),
     );
-  }
-}
-
-class _PoiClickListener extends OnPointAnnotationClickListener {
-  final Future<void> Function(PointAnnotation) onClick;
-  _PoiClickListener(this.onClick);
-
-  @override
-  void onPointAnnotationClick(PointAnnotation annotation) {
-    onClick(annotation);
   }
 }

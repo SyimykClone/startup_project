@@ -30,4 +30,45 @@ class PoiService {
     final res = await api.dio.get('/api/poi/$id');
     return Poi.fromJson((res.data as Map).cast<String, dynamic>());
   }
+
+  Future<List<Poi>> fetchFavorites() async {
+    if (useMock) {
+      await Future.delayed(const Duration(milliseconds: 180));
+      return mockPoiList.take(3).toList();
+    }
+
+    final res = await api.dio.get('/api/poi/favorites');
+    final data = res.data as List;
+    return data
+        .map((e) => Poi.fromJson((e as Map).cast<String, dynamic>()))
+        .toList();
+  }
+
+  Future<void> addFavorite(int poiId) async {
+    if (useMock) return;
+    await api.dio.post('/api/poi/favorites/$poiId');
+  }
+
+  Future<void> removeFavorite(int poiId) async {
+    if (useMock) return;
+    await api.dio.delete('/api/poi/favorites/$poiId');
+  }
+
+  Future<List<Poi>> fetchVisited() async {
+    if (useMock) {
+      await Future.delayed(const Duration(milliseconds: 180));
+      return mockPoiList.take(4).toList();
+    }
+
+    final res = await api.dio.get('/api/poi/visited');
+    final data = res.data as List;
+    return data
+        .map((e) => Poi.fromJson((e as Map).cast<String, dynamic>()))
+        .toList();
+  }
+
+  Future<void> markVisited(int poiId) async {
+    if (useMock) return;
+    await api.dio.post('/api/poi/visited/$poiId');
+  }
 }
