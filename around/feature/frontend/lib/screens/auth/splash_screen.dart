@@ -100,9 +100,9 @@ class _SplashScreenState extends State<SplashScreen> {
                     ],
                   ),
                   child: const Icon(
-                    Icons.explore_rounded,
+                    Icons.public_rounded,
                     color: _base,
-                    size: 44,
+                    size: 46,
                   ),
                 ),
                 const SizedBox(height: 20),
