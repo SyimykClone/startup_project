@@ -71,4 +71,27 @@ class PoiService {
     if (useMock) return;
     await api.dio.post('/api/poi/visited/$poiId');
   }
+
+  Future<Poi> createCustomPoiFromCoordinates({
+    required double lat,
+    required double lng,
+    String language = 'ru',
+  }) async {
+    if (useMock) {
+      return Poi(
+        id: DateTime.now().millisecondsSinceEpoch,
+        name: 'Pinned point',
+        description: '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}',
+        latitude: lat,
+        longitude: lng,
+        category: 'custom',
+      );
+    }
+
+    final res = await api.dio.post(
+      '/api/poi/custom/from-coordinates',
+      data: {'lat': lat, 'lng': lng, 'language': language},
+    );
+    return Poi.fromJson((res.data as Map).cast<String, dynamic>());
+  }
 }

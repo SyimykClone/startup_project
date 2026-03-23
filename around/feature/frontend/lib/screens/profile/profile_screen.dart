@@ -1,12 +1,14 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/config/app_config.dart';
+import '../../core/i18n/l10n.dart';
 import '../../core/network/api_client.dart';
 import '../../core/router/app_router.dart';
 import '../../models/poi.dart';
 import '../../services/poi_service.dart';
 import '../../state/auth_state.dart';
+import '../../state/locale_state.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key, required this.refreshTick});
@@ -70,9 +72,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final auth = context.watch<AuthState>();
     final username = auth.username ?? 'user';
     final avatarUrl = auth.avatarUrl;
+    final localeState = context.watch<LocaleState>();
 
     return SafeArea(
       child: Padding(
@@ -101,10 +105,64 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                   ),
+                  PopupMenuButton<String>(
+                    tooltip: l10n.language,
+                    onSelected: (value) {
+                      context.read<LocaleState>().setLocale(Locale(value));
+                    },
+                    itemBuilder: (_) => [
+                      PopupMenuItem(
+                        value: 'ru',
+                        child: Row(
+                          children: [
+                            Icon(
+                              localeState.locale.languageCode == 'ru'
+                                  ? Icons.check
+                                  : Icons.language,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(l10n.russian),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'en',
+                        child: Row(
+                          children: [
+                            Icon(
+                              localeState.locale.languageCode == 'en'
+                                  ? Icons.check
+                                  : Icons.language,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(l10n.english),
+                          ],
+                        ),
+                      ),
+                    ],
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF3D9),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        localeState.locale.languageCode.toUpperCase(),
+                        style: const TextStyle(
+                          color: base,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
                   const SizedBox(width: 12),
                   InkWell(
-                    onTap: () =>
-                        Navigator.pushNamed(context, Routes.editProfile),
+                    onTap: () => Navigator.pushNamed(context, Routes.editProfile),
                     borderRadius: BorderRadius.circular(44),
                     child: Container(
                       width: 72,
@@ -112,10 +170,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: const Color(0xFFFFF8E8),
-                        border: Border.all(
-                          color: accent.withOpacity(0.8),
-                          width: 1.4,
-                        ),
+                        border: Border.all(color: accent.withOpacity(0.8), width: 1.4),
                       ),
                       child: avatarUrl != null
                           ? ClipOval(
@@ -126,11 +181,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     const Icon(Icons.person_outline, size: 34),
                               ),
                             )
-                          : const Icon(
-                              Icons.person_outline,
-                              size: 34,
-                              color: base,
-                            ),
+                          : const Icon(Icons.person_outline, size: 34, color: base),
                     ),
                   ),
                 ],
@@ -139,10 +190,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 20),
             Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Посещенные места',
-                    style: TextStyle(
+                    l10n.visitedTitle,
+                    style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.w800,
                       color: base,
@@ -162,17 +213,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Expanded(
                 child: Center(
                   child: Text(
-                    'Ошибка загрузки: $_visitedError',
+                    l10n.loadError(_visitedError!),
                     textAlign: TextAlign.center,
                   ),
                 ),
               )
             else if (_visited.isEmpty)
-              const Expanded(
+              Expanded(
                 child: Center(
                   child: Text(
-                    'Пока нет посещенных мест',
-                    style: TextStyle(color: base, fontWeight: FontWeight.w600),
+                    l10n.visitedEmpty,
+                    style: const TextStyle(color: base, fontWeight: FontWeight.w600),
                   ),
                 ),
               )
@@ -199,10 +250,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               color: const Color(0xFFEFF3FF),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Icon(
-                              Icons.place_outlined,
-                              color: base,
-                            ),
+                            child: const Icon(Icons.place_outlined, color: base),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -242,9 +290,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               color: const Color(0xFFFFF3D9),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Text(
-                              'Посещено',
-                              style: TextStyle(
+                            child: Text(
+                              l10n.visitedBadge,
+                              style: const TextStyle(
                                 color: base,
                                 fontWeight: FontWeight.w700,
                                 fontSize: 12,

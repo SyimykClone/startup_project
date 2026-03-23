@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'core/router/app_router.dart';
 import 'core/config/app_config.dart';
 import 'core/network/api_client.dart';
+import 'core/i18n/l10n.dart';
+import 'l10n/generated/app_localizations.dart';
 
 import 'services/auth_service.dart';
 import 'state/auth_state.dart';
+import 'state/locale_state.dart';
 import 'state/poi_state.dart';
 import 'state/route_state.dart';
 
@@ -34,6 +38,13 @@ Future<void> main() async {
         ),
         ChangeNotifierProvider(create: (_) => PoiState()),
         ChangeNotifierProvider(create: (_) => RouteState()),
+        ChangeNotifierProvider(
+          create: (_) {
+            final state = LocaleState();
+            state.init();
+            return state;
+          },
+        ),
       ],
       child: const MyApp(),
     ),
@@ -48,10 +59,19 @@ class MyApp extends StatelessWidget {
     const accent = Color(0xFFFAA916);
     const base = Color(0xFF151E3F);
     const surface = Color(0xFFF7F8FC);
+    final locale = context.watch<LocaleState>().locale;
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'ARound',
+      onGenerateTitle: (context) => context.l10n.appTitle,
+      locale: locale,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       theme: ThemeData(
         useMaterial3: true,
         colorScheme:

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/i18n/l10n.dart';
 import '../home/app_shell_screen.dart';
 import '../../state/auth_state.dart';
 import 'auth_choice_screen.dart';
@@ -117,7 +118,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Find routes. Save places. Travel smarter.',
+                  context.l10n.splashTagline,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.86),
