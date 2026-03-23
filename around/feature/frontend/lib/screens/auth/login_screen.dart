@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../../core/i18n/l10n.dart';
 import '../../core/router/app_router.dart';
 import '../../state/auth_state.dart';
 import '../../widgets/error_banner.dart';
@@ -80,7 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (auth.idToken == null || auth.idToken!.isEmpty) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showMaterialBanner(
-          ErrorBanner.build(context, message: "Google token is empty."),
+          ErrorBanner.build(context, message: context.l10n.googleTokenEmpty),
         );
         return;
       }
@@ -96,7 +97,10 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showMaterialBanner(
-        ErrorBanner.build(context, message: "Google sign-in failed: $e"),
+        ErrorBanner.build(
+          context,
+          message: context.l10n.googleSignInFailed(e.toString()),
+        ),
       );
     } finally {
       if (mounted) {
@@ -108,6 +112,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     const base = Color(0xFF151E3F);
+    final l10n = context.l10n;
 
     final auth = context.watch<AuthState>();
     final disabled = auth.isLoading || _googleLoading;
@@ -124,7 +129,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Sign in")),
+      appBar: AppBar(title: Text(l10n.signIn)),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -154,8 +159,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Text(
-                            "Welcome back",
+                          Text(
+                            l10n.loginWelcomeBack,
                             style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.w800,
@@ -164,25 +169,24 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            "Sign in to continue",
+                            l10n.loginContinue,
                             style: TextStyle(color: base.withOpacity(0.72)),
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
                             controller: _email,
                             enabled: !disabled,
-                            decoration: const InputDecoration(
-                              labelText: "Email",
-                              hintText: "you@example.com",
+                            decoration: InputDecoration(
+                              labelText: l10n.email,
+                              hintText: l10n.emailHint,
                             ),
                             keyboardType: TextInputType.emailAddress,
                             textInputAction: TextInputAction.next,
                             autofillHints: const [AutofillHints.email],
                             validator: (v) {
                               final s = (v ?? '').trim().toLowerCase();
-                              if (s.isEmpty) return "Email is required";
-                              if (!_isValidEmail(s))
-                                return "Enter a valid email";
+                              if (s.isEmpty) return l10n.emailRequired;
+                              if (!_isValidEmail(s)) return l10n.emailInvalid;
                               return null;
                             },
                           ),
@@ -191,8 +195,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             controller: _pass,
                             enabled: !disabled,
                             decoration: InputDecoration(
-                              labelText: "Password",
-                              helperText: "At least 6 characters",
+                              labelText: l10n.password,
+                              helperText: l10n.passwordMin6,
                               suffixIcon: IconButton(
                                 onPressed: disabled
                                     ? null
@@ -209,9 +213,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             autofillHints: const [AutofillHints.password],
                             validator: (v) {
                               final s = (v ?? '').trim();
-                              if (s.isEmpty) return "Password is required";
+                              if (s.isEmpty) return l10n.passwordRequired;
                               if (!_isStrongEnoughPassword(s)) {
-                                return "Password must be at least 6 characters";
+                                return l10n.passwordWeak;
                               }
                               return null;
                             },
@@ -223,21 +227,21 @@ class _LoginScreenState extends State<LoginScreen> {
                             child: FilledButton(
                               onPressed: disabled ? null : _submit,
                               child: auth.isLoading
-                                  ? const Row(
+                                  ? Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        SizedBox(
+                                        const SizedBox(
                                           height: 16,
                                           width: 16,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2,
                                           ),
                                         ),
-                                        SizedBox(width: 10),
-                                        Text("Signing in..."),
+                                        const SizedBox(width: 10),
+                                        Text(l10n.signingIn),
                                       ],
                                     )
-                                  : const Text("Sign in"),
+                                  : Text(l10n.signIn),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -246,28 +250,28 @@ class _LoginScreenState extends State<LoginScreen> {
                             child: OutlinedButton(
                               onPressed: disabled ? null : _signInWithGoogle,
                               child: _googleLoading
-                                  ? const Row(
+                                  ? Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        SizedBox(
+                                        const SizedBox(
                                           height: 16,
                                           width: 16,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2,
                                           ),
                                         ),
-                                        SizedBox(width: 10),
-                                        Text("Connecting Google..."),
+                                        const SizedBox(width: 10),
+                                        Text(l10n.connectingGoogle),
                                       ],
                                     )
-                                  : const Text("Continue with Google"),
+                                  : Text(l10n.continueWithGoogle),
                             ),
                           ),
                           const SizedBox(height: 16),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Text("No account? "),
+                              Text("${l10n.noAccount} "),
                               TextButton(
                                 onPressed: disabled
                                     ? null
@@ -280,7 +284,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                           Routes.register,
                                         );
                                       },
-                                child: const Text("Sign up"),
+                                child: Text(l10n.signUp),
                               ),
                             ],
                           ),

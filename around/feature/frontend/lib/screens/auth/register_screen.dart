@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../../core/i18n/l10n.dart';
 import '../../core/router/app_router.dart';
 import '../../state/auth_state.dart';
 import '../../widgets/error_banner.dart';
@@ -89,7 +90,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (auth.idToken == null || auth.idToken!.isEmpty) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showMaterialBanner(
-          ErrorBanner.build(context, message: "Google token is empty."),
+          ErrorBanner.build(context, message: context.l10n.googleTokenEmpty),
         );
         return;
       }
@@ -105,7 +106,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showMaterialBanner(
-        ErrorBanner.build(context, message: "Google sign-in failed: $e"),
+        ErrorBanner.build(
+          context,
+          message: context.l10n.googleSignInFailed(e.toString()),
+        ),
       );
     } finally {
       if (mounted) {
@@ -117,6 +121,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     const base = Color(0xFF151E3F);
+    final l10n = context.l10n;
 
     final auth = context.watch<AuthState>();
     final disabled = auth.isLoading || _googleLoading;
@@ -133,7 +138,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Sign up")),
+      appBar: AppBar(title: Text(l10n.signUp)),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -163,8 +168,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Text(
-                            "Create account",
+                          Text(
+                            l10n.registerCreateAccount,
                             style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.w800,
@@ -173,30 +178,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            "Join ARound and start exploring",
+                            l10n.registerSubtitle,
                             style: TextStyle(color: base.withOpacity(0.72)),
                           ),
                           const SizedBox(height: 16),
                           TextFormField(
                             controller: _username,
                             enabled: !disabled,
-                            decoration: const InputDecoration(
-                              labelText: "Username",
-                              hintText: "3-20 characters",
+                            decoration: InputDecoration(
+                              labelText: l10n.username,
+                              hintText: l10n.usernameHint,
                             ),
                             textInputAction: TextInputAction.next,
                             autofillHints: const [AutofillHints.username],
                             validator: (v) {
                               final s = (v ?? '').trim();
-                              if (s.isEmpty) return "Username is required";
+                              if (s.isEmpty) return l10n.usernameRequired;
                               if (s.length < 3) {
-                                return "Username must be at least 3 characters";
+                                return l10n.usernameMin;
                               }
                               if (s.length > 20) {
-                                return "Username must be at most 20 characters";
+                                return l10n.usernameMax;
                               }
                               if (!RegExp(r'^[a-zA-Z0-9_.-]+$').hasMatch(s)) {
-                                return "Use letters, digits, ., _, -";
+                                return l10n.usernameAllowedChars;
                               }
                               return null;
                             },
@@ -205,18 +210,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           TextFormField(
                             controller: _email,
                             enabled: !disabled,
-                            decoration: const InputDecoration(
-                              labelText: "Email",
-                              hintText: "you@example.com",
+                            decoration: InputDecoration(
+                              labelText: l10n.email,
+                              hintText: l10n.emailHint,
                             ),
                             keyboardType: TextInputType.emailAddress,
                             textInputAction: TextInputAction.next,
                             autofillHints: const [AutofillHints.email],
                             validator: (v) {
                               final s = (v ?? '').trim().toLowerCase();
-                              if (s.isEmpty) return "Email is required";
-                              if (!_isValidEmail(s))
-                                return "Enter a valid email";
+                              if (s.isEmpty) return l10n.emailRequired;
+                              if (!_isValidEmail(s)) return l10n.emailInvalid;
                               return null;
                             },
                           ),
@@ -225,9 +229,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             controller: _pass,
                             enabled: !disabled,
                             decoration: InputDecoration(
-                              labelText: "Password",
-                              helperText:
-                                  "Min 6 chars, upper/lower letters and number",
+                              labelText: l10n.password,
+                              helperText: l10n.passwordRule,
                               suffixIcon: IconButton(
                                 onPressed: disabled
                                     ? null
@@ -244,9 +247,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             autofillHints: const [AutofillHints.newPassword],
                             validator: (v) {
                               final s = (v ?? '').trim();
-                              if (s.isEmpty) return "Password is required";
+                              if (s.isEmpty) return l10n.passwordRequired;
                               if (!_isStrongPassword(s)) {
-                                return "Use 6+ chars with upper/lower letters and number";
+                                return l10n.passwordStrongRule;
                               }
                               return null;
                             },
@@ -256,7 +259,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             controller: _pass2,
                             enabled: !disabled,
                             decoration: InputDecoration(
-                              labelText: "Confirm password",
+                              labelText: l10n.confirmPassword,
                               suffixIcon: IconButton(
                                 onPressed: disabled
                                     ? null
@@ -273,10 +276,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             autofillHints: const [AutofillHints.newPassword],
                             validator: (v) {
                               final s = (v ?? '').trim();
-                              if (s.isEmpty)
-                                return "Please confirm your password";
-                              if (s != _pass.text.trim())
-                                return "Passwords do not match";
+                              if (s.isEmpty) return l10n.confirmPasswordRequired;
+                              if (s != _pass.text.trim()) return l10n.passwordsNotMatch;
                               return null;
                             },
                             onFieldSubmitted: (_) => _submit(),
@@ -287,21 +288,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             child: FilledButton(
                               onPressed: disabled ? null : _submit,
                               child: auth.isLoading
-                                  ? const Row(
+                                  ? Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        SizedBox(
+                                        const SizedBox(
                                           height: 16,
                                           width: 16,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2,
                                           ),
                                         ),
-                                        SizedBox(width: 10),
-                                        Text("Creating..."),
+                                        const SizedBox(width: 10),
+                                        Text(l10n.creating),
                                       ],
                                     )
-                                  : const Text("Create account"),
+                                  : Text(l10n.createAccount),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -310,28 +311,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             child: OutlinedButton(
                               onPressed: disabled ? null : _signInWithGoogle,
                               child: _googleLoading
-                                  ? const Row(
+                                  ? Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        SizedBox(
+                                        const SizedBox(
                                           height: 16,
                                           width: 16,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2,
                                           ),
                                         ),
-                                        SizedBox(width: 10),
-                                        Text("Connecting Google..."),
+                                        const SizedBox(width: 10),
+                                        Text(l10n.connectingGoogle),
                                       ],
                                     )
-                                  : const Text("Continue with Google"),
+                                  : Text(l10n.continueWithGoogle),
                             ),
                           ),
                           const SizedBox(height: 16),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Text("Already have an account? "),
+                              Text("${l10n.alreadyAccount} "),
                               TextButton(
                                 onPressed: disabled
                                     ? null
@@ -344,7 +345,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                           Routes.login,
                                         );
                                       },
-                                child: const Text("Sign in"),
+                                child: Text(l10n.signIn),
                               ),
                             ],
                           ),

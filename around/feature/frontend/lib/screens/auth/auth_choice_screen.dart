@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/i18n/l10n.dart';
 import '../../core/router/app_router.dart';
 
 class AuthChoiceScreen extends StatelessWidget {
@@ -9,6 +10,7 @@ class AuthChoiceScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     const accent = Color(0xFFFAA916);
     const base = Color(0xFF151E3F);
+    final l10n = context.l10n;
 
     return Scaffold(
       body: Container(
@@ -60,7 +62,7 @@ class AuthChoiceScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Explore the world around you',
+                            l10n.authTagline,
                             style: TextStyle(
                               color: base.withOpacity(0.7),
                               fontSize: 15,
@@ -77,7 +79,7 @@ class AuthChoiceScreen extends StatelessWidget {
                         onPressed: () =>
                             Navigator.pushNamed(context, Routes.login),
                         icon: const Icon(Icons.login_rounded),
-                        label: const Text('Sign in'),
+                        label: Text(l10n.signIn),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -87,7 +89,7 @@ class AuthChoiceScreen extends StatelessWidget {
                         onPressed: () =>
                             Navigator.pushNamed(context, Routes.register),
                         icon: const Icon(Icons.person_add_alt_1_rounded),
-                        label: const Text('Sign up'),
+                        label: Text(l10n.signUp),
                       ),
                     ),
                     const SizedBox(height: 18),
