@@ -21,6 +21,12 @@ class Routes {
   static const poiDetail = '/poi-detail';
 }
 
+class AuthRoleArgs {
+  final String userType;
+
+  const AuthRoleArgs({required this.userType});
+}
+
 class AppRouter {
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -31,10 +37,18 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const AuthChoiceScreen());
 
       case Routes.login:
-        return MaterialPageRoute(builder: (_) => const LoginScreen());
+        final args = settings.arguments;
+        final roleArgs = args is AuthRoleArgs ? args : null;
+        return MaterialPageRoute(
+          builder: (_) => LoginScreen(initialUserType: roleArgs?.userType),
+        );
 
       case Routes.register:
-        return MaterialPageRoute(builder: (_) => const RegisterScreen());
+        final args = settings.arguments;
+        final roleArgs = args is AuthRoleArgs ? args : null;
+        return MaterialPageRoute(
+          builder: (_) => RegisterScreen(initialUserType: roleArgs?.userType),
+        );
 
       case Routes.map:
         return MaterialPageRoute(builder: (_) => const AppShellScreen());

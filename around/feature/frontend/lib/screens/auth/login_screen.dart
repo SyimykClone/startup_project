@@ -8,7 +8,9 @@ import '../../state/auth_state.dart';
 import '../../widgets/error_banner.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.initialUserType});
+
+  final String? initialUserType;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -282,6 +284,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                         Navigator.pushReplacementNamed(
                                           context,
                                           Routes.register,
+                                          arguments: AuthRoleArgs(
+                                            userType:
+                                                widget.initialUserType ?? 'user',
+                                          ),
                                         );
                                       },
                                 child: Text(l10n.signUp),

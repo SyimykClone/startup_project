@@ -19,11 +19,17 @@ class AuthService {
     api.setToken(token);
   }
 
-  Future<void> register(String username, String email, String password) async {
+  Future<void> register(
+    String username,
+    String email,
+    String password, {
+    String userType = 'user',
+  }) async {
     final res = await api.dio.post('/api/auth/register', data: {
       "username": username,
       "email": email,
       "password": password,
+      "user_type": userType,
     });
 
     final token = res.data['access_token'] as String;

@@ -5,7 +5,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/config/app_config.dart';
-import '../../core/i18n/l10n.dart';
 import '../../core/network/api_client.dart';
 import '../../models/poi.dart';
 import '../../models/route_models.dart';
@@ -26,7 +25,7 @@ class _DestinationItem {
   _DestinationItem({required this.poi, required this.mode});
 
   final Poi poi;
-  String mode;
+  String? mode;
   double? distanceM;
   double? durationS;
 }
@@ -34,9 +33,7 @@ class _DestinationItem {
 class _MapScreenState extends State<MapScreen> {
   static const _accent = Color(0xFFFAA916);
   static const _base = Color(0xFF151E3F);
-  static const _modes = ['driving', 'transit', 'walking', 'cycling'];
-
-  static const _modes = ['driving', 'transit', 'walking', 'cycling'];
+  static const _modes = ['walking', 'driving'];
 
   GoogleMapController? _map;
 
@@ -214,12 +211,12 @@ class _MapScreenState extends State<MapScreen> {
           mode: _destinations[replaceIndex].mode,
         );
       } else {
-        _destinations.add(_DestinationItem(poi: customPoi, mode: 'driving'));
+        _destinations.add(_DestinationItem(poi: customPoi, mode: null));
       }
       _activeDestination = targetIndex;
     });
 
-    await _buildAndDrawRoute(targetIndex);
+    await _showDestinationSheet(editIndex: targetIndex);
   }
 
   Future<void> _showDestinationSheet({int? editIndex}) async {
@@ -230,7 +227,7 @@ class _MapScreenState extends State<MapScreen> {
     if (!mounted || poiState.poi.isEmpty) return;
 
     Poi selectedPoi;
-    String selectedMode;
+    String? selectedMode;
 
     if (editIndex != null) {
       final d = _destinations[editIndex];
@@ -238,7 +235,7 @@ class _MapScreenState extends State<MapScreen> {
       selectedMode = d.mode;
     } else {
       selectedPoi = _selectedPoi ?? poiState.poi.first;
-      selectedMode = 'driving';
+      selectedMode = null;
     }
 
     final options = <Poi>[...poiState.poi];
@@ -260,10 +257,11 @@ class _MapScreenState extends State<MapScreen> {
                 top: 16,
                 bottom: MediaQuery.of(context).viewInsets.bottom + 16,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                   Text(
                     editIndex == null ? 'Add destination' : 'Edit destination',
                     style: const TextStyle(
@@ -324,12 +322,20 @@ class _MapScreenState extends State<MapScreen> {
                       Expanded(
                         child: FilledButton(
                           onPressed: () {
+                            if (selectedMode == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Select travel mode first'),
+                                ),
+                              );
+                              return;
+                            }
                             if (editIndex == null) {
                               setState(() {
                                 _destinations.add(
                                   _DestinationItem(
                                     poi: selectedPoi,
-                                    mode: selectedMode,
+                                    mode: selectedMode!,
                                   ),
                                 );
                                 _activeDestination = _destinations.length - 1;
@@ -339,7 +345,7 @@ class _MapScreenState extends State<MapScreen> {
                               setState(() {
                                 _destinations[editIndex] = _DestinationItem(
                                   poi: selectedPoi,
-                                  mode: selectedMode,
+                                  mode: selectedMode!,
                                 );
                                 _activeDestination = editIndex;
                                 _selectedPoi = selectedPoi;
@@ -356,6 +362,7 @@ class _MapScreenState extends State<MapScreen> {
                     ],
                   ),
                 ],
+                ),
               ),
             );
           },
@@ -372,6 +379,10 @@ class _MapScreenState extends State<MapScreen> {
     }
 
     final destination = _destinations[index];
+    if (destination.mode == null) {
+      routeState.fail('Select travel mode first');
+      return;
+    }
     routeState.start();
 
     try {
@@ -380,7 +391,7 @@ class _MapScreenState extends State<MapScreen> {
         fromLng: _userPos!.longitude,
         toLat: destination.poi.latitude,
         toLng: destination.poi.longitude,
-        profile: destination.mode,
+        profile: destination.mode!,
       );
 
       final resp = await _routeService.buildRoute(req);
@@ -455,7 +466,6 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = context.l10n;
     final poiState = context.watch<PoiState>();
     final routeState = context.watch<RouteState>();
     final isFavorite =
@@ -511,7 +521,7 @@ class _MapScreenState extends State<MapScreen> {
                     )
                   else
                     SizedBox(
-                      height: 96,
+                      height: 140,
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemCount: _destinations.length,
@@ -519,6 +529,9 @@ class _MapScreenState extends State<MapScreen> {
                         itemBuilder: (_, i) {
                           final d = _destinations[i];
                           final active = _activeDestination == i;
+                          final modeLabel = d.mode == null
+                              ? 'SELECT MODE'
+                              : d.mode!.toUpperCase();
                           final eta = d.durationS == null
                               ? '--'
                               : '${(d.durationS! / 60).toStringAsFixed(0)} min';
@@ -526,7 +539,9 @@ class _MapScreenState extends State<MapScreen> {
                               ? '--'
                               : '${(d.distanceM! / 1000).toStringAsFixed(1)} km';
                           return InkWell(
-                            onTap: () => _buildAndDrawRoute(i),
+                            onTap: d.mode == null
+                                ? () => _showDestinationSheet(editIndex: i)
+                                : () => _buildAndDrawRoute(i),
                             borderRadius: BorderRadius.circular(12),
                             child: Container(
                               width: 220,
@@ -599,7 +614,7 @@ class _MapScreenState extends State<MapScreen> {
                                     ],
                                   ),
                                   Text(
-                                    '${d.mode.toUpperCase()} · $dist · $eta',
+                                    '$modeLabel · $dist · $eta',
                                     style: TextStyle(
                                       color: _base.withOpacity(0.7),
                                       fontSize: 12,
@@ -609,7 +624,9 @@ class _MapScreenState extends State<MapScreen> {
                                   Align(
                                     alignment: Alignment.bottomRight,
                                     child: TextButton(
-                                      onPressed: () => _buildAndDrawRoute(i),
+                                      onPressed: d.mode == null
+                                          ? () => _showDestinationSheet(editIndex: i)
+                                          : () => _buildAndDrawRoute(i),
                                       child: const Text('Directions'),
                                     ),
                                   ),
