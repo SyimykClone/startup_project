@@ -184,3 +184,17 @@ async def mark_poi_visited(users_id: int, poi_id: int) -> None:
             users_id,
             poi_id,
         )
+
+
+async def remove_visited_poi(users_id: int, poi_id: int) -> bool:
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.execute(
+            """
+            DELETE FROM users_visited_poi
+            WHERE users_id = $1 AND poi_id = $2
+            """,
+            users_id,
+            poi_id,
+        )
+    return result.endswith(" 1")

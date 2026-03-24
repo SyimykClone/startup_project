@@ -10,6 +10,7 @@ from app.services.poi_repo import (
     list_visited_poi,
     mark_poi_visited,
     remove_favorite_poi,
+    remove_visited_poi,
 )
 from app.services.google_maps_service import GoogleMapsError, reverse_geocode
 from app.deps.auth import require_auth
@@ -60,6 +61,14 @@ async def visited_add(poi_id: int, user_id: int = Depends(require_auth)):
         raise HTTPException(status_code=404, detail="POI not found")
 
     await mark_poi_visited(user_id, poi_id)
+    return None
+
+
+@router.delete("/visited/{poi_id}", status_code=204)
+async def visited_remove(poi_id: int, user_id: int = Depends(require_auth)):
+    removed = await remove_visited_poi(user_id, poi_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Visited POI not found")
     return None
 
 
