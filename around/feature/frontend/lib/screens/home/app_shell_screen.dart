@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../ar/ar_placeholder_screen.dart';
 import '../favorites/favorites_screen.dart';
 import '../profile/profile_screen.dart';
+import '../tours/tours_screen.dart';
 import 'map_screen.dart';
 
 class AppShellScreen extends StatefulWidget {
@@ -12,7 +14,7 @@ class AppShellScreen extends StatefulWidget {
 }
 
 class _AppShellScreenState extends State<AppShellScreen> {
-  int _index = 1;
+  int _index = 2;
   int _favoritesRefreshTick = 0;
   int _profileRefreshTick = 0;
 
@@ -26,7 +28,9 @@ class _AppShellScreenState extends State<AppShellScreen> {
         index: _index,
         children: [
           FavoritesScreen(refreshTick: _favoritesRefreshTick),
+          const ArPlaceholderScreen(),
           const MapScreen(),
+          const ToursScreen(),
           ProfileScreen(refreshTick: _profileRefreshTick),
         ],
       ),
@@ -68,7 +72,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
                 onDestinationSelected: (value) => setState(() {
                   _index = value;
                   if (value == 0) _favoritesRefreshTick++;
-                  if (value == 2) _profileRefreshTick++;
+                  if (value == 4) _profileRefreshTick++;
                 }),
                 destinations: const [
                   NavigationDestination(
@@ -85,11 +89,33 @@ class _AppShellScreenState extends State<AppShellScreen> {
                   NavigationDestination(
                     icon: Padding(
                       padding: EdgeInsets.only(top: 4),
-                      child: Icon(Icons.photo_camera_outlined, size: 22),
+                      child: Icon(Icons.view_in_ar_outlined, size: 22),
                     ),
                     selectedIcon: Padding(
                       padding: EdgeInsets.only(top: 4),
-                      child: Icon(Icons.photo_camera, size: 24),
+                      child: Icon(Icons.view_in_ar, size: 24),
+                    ),
+                    label: '',
+                  ),
+                  NavigationDestination(
+                    icon: Padding(
+                      padding: EdgeInsets.only(top: 4),
+                      child: Icon(Icons.map_outlined, size: 22),
+                    ),
+                    selectedIcon: Padding(
+                      padding: EdgeInsets.only(top: 4),
+                      child: Icon(Icons.map_rounded, size: 24),
+                    ),
+                    label: '',
+                  ),
+                  NavigationDestination(
+                    icon: Padding(
+                      padding: EdgeInsets.only(top: 4),
+                      child: Icon(Icons.explore_outlined, size: 22),
+                    ),
+                    selectedIcon: Padding(
+                      padding: EdgeInsets.only(top: 4),
+                      child: Icon(Icons.explore, size: 24),
                     ),
                     label: '',
                   ),
