@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/config/app_config.dart';
+import '../../core/i18n/l10n.dart';
 import '../../core/network/api_client.dart';
 import '../../models/poi.dart';
 import '../../services/poi_service.dart';
@@ -69,19 +70,20 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   }
 
   Future<void> _confirmAndRemoveFavorite(Poi poi) async {
+    final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Удалить из избранного?'),
-        content: Text('Место "${poi.name}" будет удалено из списка.'),
+        title: Text(l10n.removeFavoriteTitle),
+        content: Text(l10n.removeFavoriteMessage(poi.name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Отмена'),
+            child: Text(l10n.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Удалить'),
+            child: Text(l10n.remove),
           ),
         ],
       ),
@@ -95,14 +97,16 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       setState(() => _favorites.removeWhere((p) => p.id == poi.id));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Не удалось удалить: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.removeFailed(e.toString()))),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -111,10 +115,10 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           children: [
             Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Любимые места',
-                    style: TextStyle(
+                    l10n.favoritesTitle,
+                    style: const TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.w800,
                       color: base,
@@ -137,24 +141,27 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'Ошибка загрузки: $_error',
+                        l10n.loadError(_error!),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 10),
                       FilledButton(
                         onPressed: _loadFavorites,
-                        child: const Text('Повторить'),
+                        child: Text(l10n.retry),
                       ),
                     ],
                   ),
                 ),
               )
             else if (_favorites.isEmpty)
-              const Expanded(
+              Expanded(
                 child: Center(
                   child: Text(
-                    'Список избранного пуст',
-                    style: TextStyle(color: base, fontWeight: FontWeight.w600),
+                    l10n.favoritesEmpty,
+                    style: const TextStyle(
+                      color: base,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               )
@@ -218,7 +225,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                               side: const BorderSide(color: accent),
                               foregroundColor: base,
                             ),
-                            child: const Text('Удалить'),
+                            child: Text(l10n.remove),
                           ),
                         ],
                       ),

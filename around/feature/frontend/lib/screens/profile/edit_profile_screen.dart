@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/i18n/l10n.dart';
 import '../../core/router/app_router.dart';
 import '../../state/auth_state.dart';
 
@@ -62,7 +63,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (ok) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Profile updated')));
+      ).showSnackBar(SnackBar(content: Text(context.l10n.profileUpdated)));
       Navigator.pop(context);
       return;
     }
@@ -82,12 +83,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final auth = context.watch<AuthState>();
     final avatarUrl = auth.avatarUrl;
     final busy = auth.isLoading;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Edit profile')),
+      appBar: AppBar(title: Text(l10n.editProfile)),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -150,24 +152,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Tap to choose photo',
+                      l10n.tapChoosePhoto,
                       style: TextStyle(color: _base.withOpacity(0.75)),
                     ),
                     const SizedBox(height: 18),
                     TextField(
                       controller: _usernameCtrl,
                       enabled: !busy,
-                      decoration: const InputDecoration(labelText: 'Username'),
+                      decoration: InputDecoration(labelText: l10n.username),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: _passwordCtrl,
                       enabled: !busy,
                       obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'New password',
-                        helperText:
-                            'Leave empty if you do not want to change it',
+                      decoration: InputDecoration(
+                        labelText: l10n.newPassword,
+                        helperText: l10n.newPasswordHint,
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -184,7 +185,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Text('Save changes'),
+                            : Text(l10n.saveChanges),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -193,7 +194,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       height: 48,
                       child: OutlinedButton(
                         onPressed: busy ? null : _logout,
-                        child: const Text('Log out'),
+                        child: Text(l10n.logOut),
                       ),
                     ),
                   ],

@@ -1,10 +1,11 @@
-import 'package:around/state/auth_state.dart';
+﻿import 'package:around/state/auth_state.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/config/app_config.dart';
+import '../../core/i18n/l10n.dart';
 import '../../core/network/api_client.dart';
 import '../../models/poi.dart';
 import '../../models/route_models.dart';
@@ -33,6 +34,7 @@ class _DestinationItem {
 class _MapScreenState extends State<MapScreen> {
   static const _accent = Color(0xFFFAA916);
   static const _base = Color(0xFF151E3F);
+  static const _modes = ['driving', 'transit', 'walking', 'cycling'];
 
   static const _modes = ['driving', 'transit', 'walking', 'cycling'];
 
@@ -453,6 +455,7 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final poiState = context.watch<PoiState>();
     final routeState = context.watch<RouteState>();
     final isFavorite =
@@ -665,10 +668,7 @@ class _MapScreenState extends State<MapScreen> {
                                     : _selectedPoi!.name,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: _base,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                                style: const TextStyle(color: _base, fontWeight: FontWeight.w600),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -688,9 +688,7 @@ class _MapScreenState extends State<MapScreen> {
                                   ? null
                                   : _toggleFavorite,
                               icon: Icon(
-                                isFavorite
-                                    ? Icons.favorite
-                                    : Icons.favorite_border_outlined,
+                                isFavorite ? Icons.favorite : Icons.favorite_border_outlined,
                                 color: isFavorite ? _accent : _base,
                               ),
                             ),
@@ -700,10 +698,7 @@ class _MapScreenState extends State<MapScreen> {
                           const SizedBox(height: 8),
                           Text(
                             'Error: ${routeState.error}',
-                            style: const TextStyle(
-                              color: Colors.red,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
                           ),
                         ],
                       ],
