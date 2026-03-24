@@ -5,7 +5,7 @@ async def get_user_by_email(email: str) -> Optional[dict]:
     pool = get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT id, username, email, password_hash FROM users WHERE email=$1",
+            "SELECT id, username, email, password_hash, user_type FROM users WHERE email=$1",
             email,
         )
     return dict(row) if row else None
@@ -14,21 +14,26 @@ async def get_user_by_username(username: str) -> Optional[dict]:
     pool = get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT id, username, email, password_hash FROM users WHERE username=$1",
+            "SELECT id, username, email, password_hash, user_type FROM users WHERE username=$1",
             username,
         )
     return dict(row) if row else None
 
-async def create_user(username: str, email: str, password_hash: str) -> dict:
+async def create_user(
+    username: str,
+    email: str,
+    password_hash: str,
+    user_type: str = "user",
+) -> dict:
     pool = get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
-            INSERT INTO users (username, email, password_hash)
-            VALUES ($1, $2, $3)
-            RETURNING id, username, email
+            INSERT INTO users (username, email, password_hash, user_type)
+            VALUES ($1, $2, $3, $4)
+            RETURNING id, username, email, user_type
             """,
-            username, email, password_hash,
+            username, email, password_hash, user_type,
         )
     return dict(row)
 
@@ -37,7 +42,7 @@ async def get_user_by_id(user_id: int) -> Optional[dict]:
     pool = get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT id, username, email, avatar_path FROM users WHERE id=$1",
+            "SELECT id, username, email, avatar_path, user_type FROM users WHERE id=$1",
             user_id,
         )
     return dict(row) if row else None
@@ -71,7 +76,7 @@ async def update_user_profile(
               password_hash = COALESCE($3, password_hash),
               avatar_path = COALESCE($4, avatar_path)
             WHERE id = $1
-            RETURNING id, username, email, avatar_path
+            RETURNING id, username, email, avatar_path, user_type
             """,
             user_id,
             username,
