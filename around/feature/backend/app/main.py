@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.api.poi import router as poi_router
 from app.api.route import router as route_router
 from app.api.google_maps import router as google_maps_router
+from app.api.tours import router as tours_router
 from app.core.db import close_db, connect_db
 from app.core.redis import connect_redis, close_redis
 
@@ -45,6 +46,7 @@ def create_app() -> FastAPI:
     app.include_router(poi_router)
     app.include_router(route_router)
     app.include_router(google_maps_router)
+    app.include_router(tours_router)
 
     return app
 

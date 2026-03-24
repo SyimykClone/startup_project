@@ -31,6 +31,7 @@ async def register(data: RegisterIn):
         username=data.username.strip(),
         email=data.email.strip().lower(),
         password_hash=hash_password(data.password),
+        user_type=data.user_type,
     )
     token = await create_session(user_id=user["id"])
     return AuthOut(access_token=token)
@@ -69,6 +70,7 @@ async def me(request: Request, user_id: int = Depends(require_auth)):
         id=user["id"],
         username=user["username"],
         email=user["email"],
+        user_type=user.get("user_type", "user"),
         avatar_url=_avatar_public_url(request, user.get("avatar_path")),
     )
 
@@ -130,6 +132,7 @@ async def update_me(
         id=updated["id"],
         username=updated["username"],
         email=updated["email"],
+        user_type=updated.get("user_type", "user"),
         avatar_url=_avatar_public_url(request, updated.get("avatar_path")),
     )
 
@@ -174,6 +177,7 @@ async def google_login(data: GoogleAuthIn):
             username=username,
             email=email,
             password_hash=hash_password(secrets.token_urlsafe(32)),
+            user_type="user",
         )
 
     token = await create_session(user_id=user["id"])
