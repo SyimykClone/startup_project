@@ -77,9 +77,13 @@ class AuthChoiceScreen extends StatelessWidget {
                       height: 50,
                       child: FilledButton.icon(
                         onPressed: () =>
-                            Navigator.pushNamed(context, Routes.login),
-                        icon: const Icon(Icons.login_rounded),
-                        label: Text(l10n.signIn),
+                            Navigator.pushNamed(
+                              context,
+                              Routes.login,
+                              arguments: const AuthRoleArgs(userType: 'user'),
+                            ),
+                        icon: const Icon(Icons.person_outline_rounded),
+                        label: const Text('Пользователь'),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -87,9 +91,13 @@ class AuthChoiceScreen extends StatelessWidget {
                       height: 50,
                       child: OutlinedButton.icon(
                         onPressed: () =>
-                            Navigator.pushNamed(context, Routes.register),
-                        icon: const Icon(Icons.person_add_alt_1_rounded),
-                        label: Text(l10n.signUp),
+                            Navigator.pushNamed(
+                              context,
+                              Routes.login,
+                              arguments: const AuthRoleArgs(userType: 'business'),
+                            ),
+                        icon: const Icon(Icons.business_center_outlined),
+                        label: const Text('Бизнес-пользователь'),
                       ),
                     ),
                     const SizedBox(height: 18),

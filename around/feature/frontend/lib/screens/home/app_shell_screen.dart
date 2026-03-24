@@ -17,6 +17,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
   int _index = 2;
   int _favoritesRefreshTick = 0;
   int _profileRefreshTick = 0;
+  int _toursRefreshTick = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +31,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
           FavoritesScreen(refreshTick: _favoritesRefreshTick),
           const ArPlaceholderScreen(),
           const MapScreen(),
-          const ToursScreen(),
+          ToursScreen(refreshTick: _toursRefreshTick),
           ProfileScreen(refreshTick: _profileRefreshTick),
         ],
       ),
@@ -72,6 +73,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
                 onDestinationSelected: (value) => setState(() {
                   _index = value;
                   if (value == 0) _favoritesRefreshTick++;
+                  if (value == 3) _toursRefreshTick++;
                   if (value == 4) _profileRefreshTick++;
                 }),
                 destinations: const [

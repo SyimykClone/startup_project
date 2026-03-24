@@ -10,12 +10,15 @@ class AuthState extends ChangeNotifier {
   String? _token;
   String? _username;
   String? _avatarUrl;
+  String _userType = 'user';
   bool _loading = false;
   String? _error;
 
   String? get token => _token;
   String? get username => _username;
   String? get avatarUrl => _avatarUrl;
+  String get userType => _userType;
+  bool get isBusiness => _userType == 'business';
   bool get isLoading => _loading;
   bool get isAuthed => _token != null && _token!.isNotEmpty;
   String? get error => _error;
@@ -95,13 +98,18 @@ class AuthState extends ChangeNotifier {
     }
   }
 
-  Future<bool> register(String username, String email, String password) async {
+  Future<bool> register(
+    String username,
+    String email,
+    String password, {
+    String userType = 'user',
+  }) async {
     _loading = true;
     _error = null;
     notifyListeners();
 
     try {
-      await _auth.register(username, email, password);
+      await _auth.register(username, email, password, userType: userType);
       _token = await _auth.getToken();
       await _loadMe();
       return isAuthed;
@@ -143,6 +151,7 @@ class AuthState extends ChangeNotifier {
       _token = null;
       _username = null;
       _avatarUrl = null;
+      _userType = 'user';
     } catch (e) {
       _error = _humanizeDioError(e);
     } finally {
@@ -162,6 +171,12 @@ class AuthState extends ChangeNotifier {
       _avatarUrl = avatar;
     } else {
       _avatarUrl = null;
+    }
+    final typeValue = me["user_type"];
+    if (typeValue is String && typeValue.isNotEmpty) {
+      _userType = typeValue;
+    } else {
+      _userType = 'user';
     }
   }
 
@@ -188,6 +203,10 @@ class AuthState extends ChangeNotifier {
         _avatarUrl = avatar;
       } else {
         _avatarUrl = null;
+      }
+      final typeValue = me["user_type"];
+      if (typeValue is String && typeValue.isNotEmpty) {
+        _userType = typeValue;
       }
       return true;
     } catch (e) {

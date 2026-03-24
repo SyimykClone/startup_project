@@ -8,7 +8,9 @@ import '../../state/auth_state.dart';
 import '../../widgets/error_banner.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  const RegisterScreen({super.key, this.initialUserType});
+
+  final String? initialUserType;
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -58,6 +60,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _username.text.trim(),
       _email.text.trim().toLowerCase(),
       _pass.text.trim(),
+      userType: widget.initialUserType ?? 'user',
     );
 
     if (!mounted) return;
@@ -343,6 +346,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                         Navigator.pushReplacementNamed(
                                           context,
                                           Routes.login,
+                                          arguments: AuthRoleArgs(
+                                            userType:
+                                                widget.initialUserType ?? 'user',
+                                          ),
                                         );
                                       },
                                 child: Text(l10n.signIn),
