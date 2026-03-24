@@ -36,6 +36,8 @@ class _MapScreenState extends State<MapScreen> {
   static const _base = Color(0xFF151E3F);
   static const _modes = ['driving', 'transit', 'walking', 'cycling'];
 
+  static const _modes = ['driving', 'transit', 'walking', 'cycling'];
+
   GoogleMapController? _map;
 
   late PoiService _poiService;
@@ -140,10 +142,9 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _onMapTap(LatLng position) async {
-    final l10n = context.l10n;
     final fallbackPoi = Poi(
       id: _nextTempPoiId--,
-      name: l10n.pinnedPoint,
+      name: 'Pinned point',
       description:
           '${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}',
       latitude: position.latitude,
@@ -151,13 +152,15 @@ class _MapScreenState extends State<MapScreen> {
       category: 'custom',
     );
 
-    const tapMarkerId = MarkerId('tap_point');
-    final nonTapMarkers = _markers.where((m) => m.markerId != tapMarkerId).toSet();
+    final tapMarkerId = const MarkerId('tap_point');
+    final nonTapMarkers = _markers
+        .where((m) => m.markerId != tapMarkerId)
+        .toSet();
     nonTapMarkers.add(
       Marker(
         markerId: tapMarkerId,
         position: position,
-        infoWindow: InfoWindow(title: l10n.pinnedPoint),
+        infoWindow: const InfoWindow(title: 'Pinned point'),
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
       ),
     );
@@ -176,15 +179,19 @@ class _MapScreenState extends State<MapScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(l10n.couldNotResolveAddress)),
+          const SnackBar(
+            content: Text(
+              'Could not resolve address, using pinned coordinates',
+            ),
+          ),
         );
       }
     }
 
     if (!mounted) return;
 
-    final refreshed = _markers.where((m) => m.markerId != tapMarkerId).toSet();
-    refreshed.add(
+    final refreshedMarkers = _markers.where((m) => m.markerId != tapMarkerId).toSet();
+    refreshedMarkers.add(
       Marker(
         markerId: tapMarkerId,
         position: position,
@@ -193,13 +200,13 @@ class _MapScreenState extends State<MapScreen> {
       ),
     );
 
-    final existingCustomIndex = _destinations.indexWhere((d) => d.poi.category == 'custom');
     final existingTempIndex = _destinations.indexWhere((d) => d.poi.id < 0);
+    final existingCustomIndex = _destinations.indexWhere((d) => d.poi.category == 'custom');
     final replaceIndex = existingCustomIndex >= 0 ? existingCustomIndex : existingTempIndex;
     final targetIndex = replaceIndex >= 0 ? replaceIndex : _destinations.length;
 
     setState(() {
-      _markers = refreshed;
+      _markers = refreshedMarkers;
       _selectedPoi = customPoi;
       if (replaceIndex >= 0) {
         _destinations[replaceIndex] = _DestinationItem(
@@ -258,7 +265,7 @@ class _MapScreenState extends State<MapScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    editIndex == null ? context.l10n.addDestination : context.l10n.editDestination,
+                    editIndex == null ? 'Add destination' : 'Edit destination',
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
@@ -284,12 +291,12 @@ class _MapScreenState extends State<MapScreen> {
                       final picked = options.firstWhere((p) => p.id == v);
                       setModal(() => selectedPoi = picked);
                     },
-                    decoration: InputDecoration(labelText: context.l10n.destination),
+                    decoration: const InputDecoration(labelText: 'Destination'),
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    context.l10n.travelMode,
-                    style: const TextStyle(fontWeight: FontWeight.w700, color: _base),
+                  const Text(
+                    'Travel mode',
+                    style: TextStyle(fontWeight: FontWeight.w700, color: _base),
                   ),
                   const SizedBox(height: 8),
                   Wrap(
@@ -310,7 +317,7 @@ class _MapScreenState extends State<MapScreen> {
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () => Navigator.pop(context),
-                          child: Text(context.l10n.cancel),
+                          child: const Text('Cancel'),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -319,13 +326,21 @@ class _MapScreenState extends State<MapScreen> {
                           onPressed: () {
                             if (editIndex == null) {
                               setState(() {
-                                _destinations.add(_DestinationItem(poi: selectedPoi, mode: selectedMode));
+                                _destinations.add(
+                                  _DestinationItem(
+                                    poi: selectedPoi,
+                                    mode: selectedMode,
+                                  ),
+                                );
                                 _activeDestination = _destinations.length - 1;
                                 _selectedPoi = selectedPoi;
                               });
                             } else {
                               setState(() {
-                                _destinations[editIndex] = _DestinationItem(poi: selectedPoi, mode: selectedMode);
+                                _destinations[editIndex] = _DestinationItem(
+                                  poi: selectedPoi,
+                                  mode: selectedMode,
+                                );
                                 _activeDestination = editIndex;
                                 _selectedPoi = selectedPoi;
                               });
@@ -335,7 +350,7 @@ class _MapScreenState extends State<MapScreen> {
                               _buildAndDrawRoute(_activeDestination!);
                             }
                           },
-                          child: Text(editIndex == null ? context.l10n.add : context.l10n.save),
+                          child: Text(editIndex == null ? 'Add' : 'Save'),
                         ),
                       ),
                     ],
@@ -432,9 +447,9 @@ class _MapScreenState extends State<MapScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.favoriteActionFailed(e.toString()))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Favorite action failed: $e')));
     }
   }
 
@@ -464,16 +479,19 @@ class _MapScreenState extends State<MapScreen> {
                 children: [
                   Row(
                     children: [
-                      Expanded(
+                      const Expanded(
                         child: Text(
-                          l10n.destinations,
-                          style: const TextStyle(color: _base, fontWeight: FontWeight.w700),
+                          'Destinations',
+                          style: TextStyle(
+                            color: _base,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                       OutlinedButton.icon(
                         onPressed: () => _showDestinationSheet(),
                         icon: const Icon(Icons.add),
-                        label: Text(l10n.add),
+                        label: const Text('Add'),
                       ),
                     ],
                   ),
@@ -486,7 +504,10 @@ class _MapScreenState extends State<MapScreen> {
                         color: const Color(0xFFF7F8FC),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Text(l10n.noDestinations, style: const TextStyle(color: _base)),
+                      child: const Text(
+                        'No destinations yet. Tap Add.',
+                        style: TextStyle(color: _base),
+                      ),
                     )
                   else
                     SizedBox(
@@ -498,8 +519,12 @@ class _MapScreenState extends State<MapScreen> {
                         itemBuilder: (_, i) {
                           final d = _destinations[i];
                           final active = _activeDestination == i;
-                          final eta = d.durationS == null ? '--' : '${(d.durationS! / 60).toStringAsFixed(0)} min';
-                          final dist = d.distanceM == null ? '--' : '${(d.distanceM! / 1000).toStringAsFixed(1)} km';
+                          final eta = d.durationS == null
+                              ? '--'
+                              : '${(d.durationS! / 60).toStringAsFixed(0)} min';
+                          final dist = d.distanceM == null
+                              ? '--'
+                              : '${(d.distanceM! / 1000).toStringAsFixed(1)} km';
                           return InkWell(
                             onTap: () => _buildAndDrawRoute(i),
                             borderRadius: BorderRadius.circular(12),
@@ -507,9 +532,13 @@ class _MapScreenState extends State<MapScreen> {
                               width: 220,
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: active ? const Color(0xFFFFF3D9) : Colors.white,
+                                color: active
+                                    ? const Color(0xFFFFF3D9)
+                                    : Colors.white,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: _base.withOpacity(0.18)),
+                                border: Border.all(
+                                  color: _base.withOpacity(0.18),
+                                ),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -521,43 +550,67 @@ class _MapScreenState extends State<MapScreen> {
                                           d.poi.name,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(color: _base, fontWeight: FontWeight.w700),
+                                          style: const TextStyle(
+                                            color: _base,
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                         ),
                                       ),
                                       IconButton(
                                         padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints.tightFor(width: 26, height: 26),
-                                        onPressed: () => _showDestinationSheet(editIndex: i),
-                                        icon: const Icon(Icons.edit_outlined, size: 16),
+                                        constraints:
+                                            const BoxConstraints.tightFor(
+                                              width: 26,
+                                              height: 26,
+                                            ),
+                                        onPressed: () =>
+                                            _showDestinationSheet(editIndex: i),
+                                        icon: const Icon(
+                                          Icons.edit_outlined,
+                                          size: 16,
+                                        ),
                                       ),
                                       IconButton(
                                         padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints.tightFor(width: 26, height: 26),
+                                        constraints:
+                                            const BoxConstraints.tightFor(
+                                              width: 26,
+                                              height: 26,
+                                            ),
                                         onPressed: () {
                                           setState(() {
                                             _destinations.removeAt(i);
                                             if (_activeDestination == i) {
                                               _activeDestination = null;
                                               _polylines = {};
-                                            } else if (_activeDestination != null && _activeDestination! > i) {
-                                              _activeDestination = _activeDestination! - 1;
+                                            } else if (_activeDestination !=
+                                                    null &&
+                                                _activeDestination! > i) {
+                                              _activeDestination =
+                                                  _activeDestination! - 1;
                                             }
                                           });
                                         },
-                                        icon: const Icon(Icons.delete_outline, size: 16),
+                                        icon: const Icon(
+                                          Icons.delete_outline,
+                                          size: 16,
+                                        ),
                                       ),
                                     ],
                                   ),
                                   Text(
-                                    '${d.mode.toUpperCase()} • $dist • $eta',
-                                    style: TextStyle(color: _base.withOpacity(0.7), fontSize: 12),
+                                    '${d.mode.toUpperCase()} · $dist · $eta',
+                                    style: TextStyle(
+                                      color: _base.withOpacity(0.7),
+                                      fontSize: 12,
+                                    ),
                                   ),
                                   const Spacer(),
                                   Align(
                                     alignment: Alignment.bottomRight,
                                     child: TextButton(
                                       onPressed: () => _buildAndDrawRoute(i),
-                                      child: Text(l10n.directions),
+                                      child: const Text('Directions'),
                                     ),
                                   ),
                                 ],
@@ -610,7 +663,9 @@ class _MapScreenState extends State<MapScreen> {
                           children: [
                             Expanded(
                               child: Text(
-                                _selectedPoi == null ? l10n.tapMarkerOrAdd : _selectedPoi!.name,
+                                _selectedPoi == null
+                                    ? 'Tap marker or add destination'
+                                    : _selectedPoi!.name,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(color: _base, fontWeight: FontWeight.w600),
@@ -622,11 +677,16 @@ class _MapScreenState extends State<MapScreen> {
                                 backgroundColor: _accent,
                                 foregroundColor: _base,
                               ),
-                              onPressed: _selectedPoi == null ? null : () => _showDestinationSheet(),
-                              child: Text(l10n.addDestination),
+                              onPressed: _selectedPoi == null
+                                  ? null
+                                  : () => _showDestinationSheet(),
+                              child: const Text('Add destination'),
                             ),
                             IconButton(
-                              onPressed: _selectedPoi == null || _selectedPoi!.id <= 0 ? null : _toggleFavorite,
+                              onPressed:
+                                  _selectedPoi == null || _selectedPoi!.id <= 0
+                                  ? null
+                                  : _toggleFavorite,
                               icon: Icon(
                                 isFavorite ? Icons.favorite : Icons.favorite_border_outlined,
                                 color: isFavorite ? _accent : _base,
