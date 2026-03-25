@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/config/app_config.dart';
+import '../../core/i18n/l10n.dart';
 import '../../core/network/api_client.dart';
 import '../../models/poi.dart';
 import '../../models/route_models.dart';
@@ -53,6 +54,17 @@ class _MapScreenState extends State<MapScreen> {
   Set<Polyline> _polylines = <Polyline>{};
 
   bool _servicesInitialized = false;
+
+  String _modeText(String mode) {
+    switch (mode) {
+      case 'walking':
+        return context.l10n.modeWalking;
+      case 'driving':
+        return context.l10n.modeDriving;
+      default:
+        return mode;
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -139,9 +151,10 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _onMapTap(LatLng position) async {
+    final l10n = context.l10n;
     final fallbackPoi = Poi(
       id: _nextTempPoiId--,
-      name: 'Pinned point',
+      name: l10n.pinnedPoint,
       description:
           '${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}',
       latitude: position.latitude,
@@ -157,7 +170,7 @@ class _MapScreenState extends State<MapScreen> {
       Marker(
         markerId: tapMarkerId,
         position: position,
-        infoWindow: const InfoWindow(title: 'Pinned point'),
+        infoWindow: InfoWindow(title: l10n.pinnedPoint),
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
       ),
     );
@@ -176,10 +189,8 @@ class _MapScreenState extends State<MapScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Could not resolve address, using pinned coordinates',
-            ),
+          SnackBar(
+            content: Text(l10n.couldNotResolveAddress),
           ),
         );
       }
@@ -263,7 +274,7 @@ class _MapScreenState extends State<MapScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                   Text(
-                    editIndex == null ? 'Add destination' : 'Edit destination',
+                    editIndex == null ? context.l10n.addDestination : context.l10n.editDestination,
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
@@ -289,11 +300,11 @@ class _MapScreenState extends State<MapScreen> {
                       final picked = options.firstWhere((p) => p.id == v);
                       setModal(() => selectedPoi = picked);
                     },
-                    decoration: const InputDecoration(labelText: 'Destination'),
+                    decoration: InputDecoration(labelText: context.l10n.destination),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Travel mode',
+                  Text(
+                    context.l10n.travelMode,
                     style: TextStyle(fontWeight: FontWeight.w700, color: _base),
                   ),
                   const SizedBox(height: 8),
@@ -304,7 +315,7 @@ class _MapScreenState extends State<MapScreen> {
                       final selected = selectedMode == mode;
                       return ChoiceChip(
                         selected: selected,
-                        label: Text(mode),
+                        label: Text(_modeText(mode)),
                         onSelected: (_) => setModal(() => selectedMode = mode),
                       );
                     }).toList(),
@@ -315,7 +326,7 @@ class _MapScreenState extends State<MapScreen> {
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () => Navigator.pop(context),
-                          child: const Text('Cancel'),
+                          child: Text(context.l10n.cancel),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -324,8 +335,8 @@ class _MapScreenState extends State<MapScreen> {
                           onPressed: () {
                             if (selectedMode == null) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Select travel mode first'),
+                                SnackBar(
+                                  content: Text(context.l10n.selectTravelModeFirst),
                                 ),
                               );
                               return;
@@ -356,7 +367,7 @@ class _MapScreenState extends State<MapScreen> {
                               _buildAndDrawRoute(_activeDestination!);
                             }
                           },
-                          child: Text(editIndex == null ? 'Add' : 'Save'),
+                          child: Text(editIndex == null ? context.l10n.add : context.l10n.save),
                         ),
                       ),
                     ],
@@ -374,13 +385,13 @@ class _MapScreenState extends State<MapScreen> {
   Future<void> _buildAndDrawRoute(int index) async {
     final routeState = context.read<RouteState>();
     if (_userPos == null) {
-      routeState.fail('User location not found');
+      routeState.fail(context.l10n.userLocationNotFound);
       return;
     }
 
     final destination = _destinations[index];
     if (destination.mode == null) {
-      routeState.fail('Select travel mode first');
+      routeState.fail(context.l10n.selectTravelModeFirst);
       return;
     }
     routeState.start();
@@ -418,7 +429,7 @@ class _MapScreenState extends State<MapScreen> {
         } else if (e.message != null && e.message!.isNotEmpty) {
           msg = e.message!;
         } else if (e.response?.statusCode != null) {
-          msg = 'Request failed (${e.response!.statusCode})';
+          msg = context.l10n.requestFailed(e.response!.statusCode!);
         }
       }
       routeState.fail(msg);
@@ -460,7 +471,9 @@ class _MapScreenState extends State<MapScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Favorite action failed: $e')));
+      ).showSnackBar(
+        SnackBar(content: Text(context.l10n.favoriteActionFailed(e.toString()))),
+      );
     }
   }
 
@@ -489,9 +502,9 @@ class _MapScreenState extends State<MapScreen> {
                 children: [
                   Row(
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'Destinations',
+                          context.l10n.destinations,
                           style: TextStyle(
                             color: _base,
                             fontWeight: FontWeight.w700,
@@ -501,7 +514,7 @@ class _MapScreenState extends State<MapScreen> {
                       OutlinedButton.icon(
                         onPressed: () => _showDestinationSheet(),
                         icon: const Icon(Icons.add),
-                        label: const Text('Add'),
+                        label: Text(context.l10n.add),
                       ),
                     ],
                   ),
@@ -514,8 +527,8 @@ class _MapScreenState extends State<MapScreen> {
                         color: const Color(0xFFF7F8FC),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Text(
-                        'No destinations yet. Tap Add.',
+                      child: Text(
+                        context.l10n.noDestinations,
                         style: TextStyle(color: _base),
                       ),
                     )
@@ -530,14 +543,14 @@ class _MapScreenState extends State<MapScreen> {
                           final d = _destinations[i];
                           final active = _activeDestination == i;
                           final modeLabel = d.mode == null
-                              ? 'SELECT MODE'
+                              ? context.l10n.selectMode
                               : d.mode!.toUpperCase();
                           final eta = d.durationS == null
                               ? '--'
-                              : '${(d.durationS! / 60).toStringAsFixed(0)} min';
+                              : '${(d.durationS! / 60).toStringAsFixed(0)} ${context.l10n.minUnit}';
                           final dist = d.distanceM == null
                               ? '--'
-                              : '${(d.distanceM! / 1000).toStringAsFixed(1)} km';
+                              : '${(d.distanceM! / 1000).toStringAsFixed(1)} ${context.l10n.kmUnit}';
                           return InkWell(
                             onTap: d.mode == null
                                 ? () => _showDestinationSheet(editIndex: i)
@@ -627,7 +640,7 @@ class _MapScreenState extends State<MapScreen> {
                                       onPressed: d.mode == null
                                           ? () => _showDestinationSheet(editIndex: i)
                                           : () => _buildAndDrawRoute(i),
-                                      child: const Text('Directions'),
+                                      child: Text(context.l10n.directions),
                                     ),
                                   ),
                                 ],
@@ -681,7 +694,7 @@ class _MapScreenState extends State<MapScreen> {
                             Expanded(
                               child: Text(
                                 _selectedPoi == null
-                                    ? 'Tap marker or add destination'
+                                    ? context.l10n.tapMarkerOrAdd
                                     : _selectedPoi!.name,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -697,7 +710,7 @@ class _MapScreenState extends State<MapScreen> {
                               onPressed: _selectedPoi == null
                                   ? null
                                   : () => _showDestinationSheet(),
-                              child: const Text('Add destination'),
+                              child: Text(context.l10n.addDestination),
                             ),
                             IconButton(
                               onPressed:
@@ -714,7 +727,7 @@ class _MapScreenState extends State<MapScreen> {
                         if (routeState.error != null) ...[
                           const SizedBox(height: 8),
                           Text(
-                            'Error: ${routeState.error}',
+                            '${context.l10n.errorLabel}: ${routeState.error}',
                             style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
                           ),
                         ],

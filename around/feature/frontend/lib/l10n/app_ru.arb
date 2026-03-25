@@ -72,6 +72,22 @@
   "pinnedPoint": "Отмеченная точка",
   "googleTokenEmpty": "Google-токен пуст.",
   "googleSignInFailed": "Ошибка входа через Google: {error}",
+  "selectTravelModeFirst": "Сначала выберите тип маршрута",
+  "userLocationNotFound": "Не удалось определить местоположение пользователя",
+  "requestFailed": "Запрос не выполнен ({code})",
+  "@requestFailed": {
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
+  "selectMode": "ВЫБЕРИТЕ РЕЖИМ",
+  "minUnit": "мин",
+  "kmUnit": "км",
+  "errorLabel": "Ошибка",
+  "modeWalking": "Пешком",
+  "modeDriving": "На машине",
   "roleUser": "Пользователь",
   "roleBusiness": "Бизнес-пользователь",
   "toursTitle": "Туры",

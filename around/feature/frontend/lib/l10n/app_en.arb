@@ -72,6 +72,22 @@
   "pinnedPoint": "Pinned point",
   "googleTokenEmpty": "Google token is empty.",
   "googleSignInFailed": "Google sign-in failed: {error}",
+  "selectTravelModeFirst": "Select travel mode first",
+  "userLocationNotFound": "User location not found",
+  "requestFailed": "Request failed ({code})",
+  "@requestFailed": {
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
+  "selectMode": "SELECT MODE",
+  "minUnit": "min",
+  "kmUnit": "km",
+  "errorLabel": "Error",
+  "modeWalking": "Walking",
+  "modeDriving": "Driving",
   "roleUser": "User",
   "roleBusiness": "Business user",
   "toursTitle": "Tours",
