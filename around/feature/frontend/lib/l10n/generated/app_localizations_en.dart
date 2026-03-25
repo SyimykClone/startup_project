@@ -237,6 +237,35 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get selectTravelModeFirst => 'Select travel mode first';
+
+  @override
+  String get userLocationNotFound => 'User location not found';
+
+  @override
+  String requestFailed(int code) {
+    return 'Request failed ($code)';
+  }
+
+  @override
+  String get selectMode => 'SELECT MODE';
+
+  @override
+  String get minUnit => 'min';
+
+  @override
+  String get kmUnit => 'km';
+
+  @override
+  String get errorLabel => 'Error';
+
+  @override
+  String get modeWalking => 'Walking';
+
+  @override
+  String get modeDriving => 'Driving';
+
+  @override
   String get roleUser => 'User';
 
   @override

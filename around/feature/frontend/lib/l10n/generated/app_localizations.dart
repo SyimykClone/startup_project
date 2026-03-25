@@ -530,6 +530,60 @@ abstract class AppLocalizations {
   /// **'Google sign-in failed: {error}'**
   String googleSignInFailed(Object error);
 
+  /// No description provided for @selectTravelModeFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Select travel mode first'**
+  String get selectTravelModeFirst;
+
+  /// No description provided for @userLocationNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'User location not found'**
+  String get userLocationNotFound;
+
+  /// No description provided for @requestFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Request failed ({code})'**
+  String requestFailed(int code);
+
+  /// No description provided for @selectMode.
+  ///
+  /// In en, this message translates to:
+  /// **'SELECT MODE'**
+  String get selectMode;
+
+  /// No description provided for @minUnit.
+  ///
+  /// In en, this message translates to:
+  /// **'min'**
+  String get minUnit;
+
+  /// No description provided for @kmUnit.
+  ///
+  /// In en, this message translates to:
+  /// **'km'**
+  String get kmUnit;
+
+  /// No description provided for @errorLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Error'**
+  String get errorLabel;
+
+  /// No description provided for @modeWalking.
+  ///
+  /// In en, this message translates to:
+  /// **'Walking'**
+  String get modeWalking;
+
+  /// No description provided for @modeDriving.
+  ///
+  /// In en, this message translates to:
+  /// **'Driving'**
+  String get modeDriving;
+
   /// No description provided for @roleUser.
   ///
   /// In en, this message translates to:

@@ -240,6 +240,36 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String get selectTravelModeFirst => 'Сначала выберите тип маршрута';
+
+  @override
+  String get userLocationNotFound =>
+      'Не удалось определить местоположение пользователя';
+
+  @override
+  String requestFailed(int code) {
+    return 'Запрос не выполнен ($code)';
+  }
+
+  @override
+  String get selectMode => 'ВЫБЕРИТЕ РЕЖИМ';
+
+  @override
+  String get minUnit => 'мин';
+
+  @override
+  String get kmUnit => 'км';
+
+  @override
+  String get errorLabel => 'Ошибка';
+
+  @override
+  String get modeWalking => 'Пешком';
+
+  @override
+  String get modeDriving => 'На машине';
+
+  @override
   String get roleUser => 'Пользователь';
 
   @override
