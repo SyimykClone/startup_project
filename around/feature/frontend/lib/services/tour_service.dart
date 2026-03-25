@@ -25,16 +25,24 @@ class TourService {
   Future<Tour> create({
     required String title,
     required String description,
-    required int durationMin,
+    required int durationDays,
+    required double price,
     required double distanceKm,
+    required int stopsCount,
+    required String difficulty,
+    required bool isPublished,
   }) async {
     final res = await api.dio.post(
       '/api/tours',
       data: {
         'title': title,
         'description': description,
-        'duration_min': durationMin,
+        'duration_days': durationDays,
+        'price': price,
         'distance_km': distanceKm,
+        'stops_count': stopsCount,
+        'difficulty': difficulty,
+        'is_published': isPublished,
       },
     );
     return Tour.fromJson((res.data as Map).cast<String, dynamic>());
@@ -44,14 +52,22 @@ class TourService {
     int id, {
     String? title,
     String? description,
-    int? durationMin,
+    int? durationDays,
+    double? price,
     double? distanceKm,
+    int? stopsCount,
+    String? difficulty,
+    bool? isPublished,
   }) async {
     final data = <String, dynamic>{};
     if (title != null) data['title'] = title;
     if (description != null) data['description'] = description;
-    if (durationMin != null) data['duration_min'] = durationMin;
+    if (durationDays != null) data['duration_days'] = durationDays;
+    if (price != null) data['price'] = price;
     if (distanceKm != null) data['distance_km'] = distanceKm;
+    if (stopsCount != null) data['stops_count'] = stopsCount;
+    if (difficulty != null) data['difficulty'] = difficulty;
+    if (isPublished != null) data['is_published'] = isPublished;
     final res = await api.dio.patch('/api/tours/$id', data: data);
     return Tour.fromJson((res.data as Map).cast<String, dynamic>());
   }
