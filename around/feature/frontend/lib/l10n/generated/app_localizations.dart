@@ -529,6 +529,162 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Google sign-in failed: {error}'**
   String googleSignInFailed(Object error);
+
+  /// No description provided for @roleUser.
+  ///
+  /// In en, this message translates to:
+  /// **'User'**
+  String get roleUser;
+
+  /// No description provided for @roleBusiness.
+  ///
+  /// In en, this message translates to:
+  /// **'Business user'**
+  String get roleBusiness;
+
+  /// No description provided for @toursTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Tours'**
+  String get toursTitle;
+
+  /// No description provided for @myToursTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'My tours'**
+  String get myToursTitle;
+
+  /// No description provided for @toursBusinessHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Create, edit and publish your tours'**
+  String get toursBusinessHint;
+
+  /// No description provided for @toursUserHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Published tours from business users'**
+  String get toursUserHint;
+
+  /// No description provided for @createTour.
+  ///
+  /// In en, this message translates to:
+  /// **'Create tour'**
+  String get createTour;
+
+  /// No description provided for @editTour.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit tour'**
+  String get editTour;
+
+  /// No description provided for @tourTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Title'**
+  String get tourTitle;
+
+  /// No description provided for @tourDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get tourDescription;
+
+  /// No description provided for @tourDurationDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Duration (days)'**
+  String get tourDurationDays;
+
+  /// No description provided for @tourPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Price'**
+  String get tourPrice;
+
+  /// No description provided for @tourDistanceKm.
+  ///
+  /// In en, this message translates to:
+  /// **'Distance (km)'**
+  String get tourDistanceKm;
+
+  /// No description provided for @tourStopsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Stops count'**
+  String get tourStopsCount;
+
+  /// No description provided for @tourDifficulty.
+  ///
+  /// In en, this message translates to:
+  /// **'Difficulty'**
+  String get tourDifficulty;
+
+  /// No description provided for @tourPublished.
+  ///
+  /// In en, this message translates to:
+  /// **'Published'**
+  String get tourPublished;
+
+  /// No description provided for @checkFormData.
+  ///
+  /// In en, this message translates to:
+  /// **'Check form data'**
+  String get checkFormData;
+
+  /// No description provided for @noToursYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No tours yet'**
+  String get noToursYet;
+
+  /// No description provided for @published.
+  ///
+  /// In en, this message translates to:
+  /// **'Published'**
+  String get published;
+
+  /// No description provided for @draft.
+  ///
+  /// In en, this message translates to:
+  /// **'Draft'**
+  String get draft;
+
+  /// No description provided for @daysUnit.
+  ///
+  /// In en, this message translates to:
+  /// **'days'**
+  String get daysUnit;
+
+  /// No description provided for @stopsUnit.
+  ///
+  /// In en, this message translates to:
+  /// **'stops'**
+  String get stopsUnit;
+
+  /// No description provided for @deleteFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete failed: {error}'**
+  String deleteFailed(Object error);
+
+  /// No description provided for @difficultyEasy.
+  ///
+  /// In en, this message translates to:
+  /// **'Easy'**
+  String get difficultyEasy;
+
+  /// No description provided for @difficultyMedium.
+  ///
+  /// In en, this message translates to:
+  /// **'Medium'**
+  String get difficultyMedium;
+
+  /// No description provided for @difficultyHard.
+  ///
+  /// In en, this message translates to:
+  /// **'Hard'**
+  String get difficultyHard;
 }
 
 class _AppLocalizationsDelegate

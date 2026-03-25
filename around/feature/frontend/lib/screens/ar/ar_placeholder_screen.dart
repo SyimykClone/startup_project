@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 class ArPlaceholderScreen extends StatelessWidget {
   const ArPlaceholderScreen({super.key});
@@ -8,9 +8,9 @@ class ArPlaceholderScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
             child: Container(
@@ -34,7 +34,7 @@ class ArPlaceholderScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
                   const Text(
-                    'AR-режим',
+                    'AR Mode',
                     style: TextStyle(
                       color: _base,
                       fontSize: 24,
@@ -43,7 +43,7 @@ class ArPlaceholderScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Функция в разработке. Скоро здесь будет дополненная реальность для маршрутов и точек интереса.',
+                    'This feature is under development. It will be available soon.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: _base.withOpacity(0.72), height: 1.35),
                   ),
@@ -52,13 +52,13 @@ class ArPlaceholderScreen extends StatelessWidget {
                     backgroundColor: Color(0xFFFFF3D9),
                     side: BorderSide.none,
                     label: Text(
-                      'Временно недоступно',
+                      'Temporarily unavailable',
                       style: TextStyle(color: _base, fontWeight: FontWeight.w700),
                     ),
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Перейти можно в другие вкладки снизу.',
+                    'You can switch to other tabs below.',
                     style: TextStyle(color: _base),
                   ),
                 ],

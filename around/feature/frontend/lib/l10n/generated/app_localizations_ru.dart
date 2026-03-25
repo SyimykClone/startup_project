@@ -238,4 +238,85 @@ class AppLocalizationsRu extends AppLocalizations {
   String googleSignInFailed(Object error) {
     return 'Ошибка входа через Google: $error';
   }
+
+  @override
+  String get roleUser => 'Пользователь';
+
+  @override
+  String get roleBusiness => 'Бизнес-пользователь';
+
+  @override
+  String get toursTitle => 'Туры';
+
+  @override
+  String get myToursTitle => 'Мои туры';
+
+  @override
+  String get toursBusinessHint =>
+      'Создавайте, редактируйте и публикуйте свои туры';
+
+  @override
+  String get toursUserHint => 'Опубликованные туры от бизнес-пользователей';
+
+  @override
+  String get createTour => 'Создать тур';
+
+  @override
+  String get editTour => 'Редактировать тур';
+
+  @override
+  String get tourTitle => 'Название';
+
+  @override
+  String get tourDescription => 'Описание';
+
+  @override
+  String get tourDurationDays => 'Длительность (дни)';
+
+  @override
+  String get tourPrice => 'Стоимость';
+
+  @override
+  String get tourDistanceKm => 'Дистанция (км)';
+
+  @override
+  String get tourStopsCount => 'Количество остановок';
+
+  @override
+  String get tourDifficulty => 'Сложность';
+
+  @override
+  String get tourPublished => 'Опубликован';
+
+  @override
+  String get checkFormData => 'Проверьте данные формы';
+
+  @override
+  String get noToursYet => 'Пока нет туров';
+
+  @override
+  String get published => 'Опубликован';
+
+  @override
+  String get draft => 'Черновик';
+
+  @override
+  String get daysUnit => 'дн.';
+
+  @override
+  String get stopsUnit => 'ост.';
+
+  @override
+  String deleteFailed(Object error) {
+    return 'Не удалось удалить: $error';
+  }
+
+  @override
+  String get difficultyEasy => 'Легко';
+
+  @override
+  String get difficultyMedium => 'Средне';
+
+  @override
+  String get difficultyHard => 'Сложно';
 }

@@ -1,4 +1,4 @@
-{
+﻿{
   "@@locale": "ru",
   "appTitle": "ARound",
   "language": "Язык",
@@ -71,5 +71,31 @@
   "couldNotResolveAddress": "Не удалось определить адрес, используем координаты",
   "pinnedPoint": "Отмеченная точка",
   "googleTokenEmpty": "Google-токен пуст.",
-  "googleSignInFailed": "Ошибка входа через Google: {error}"
+  "googleSignInFailed": "Ошибка входа через Google: {error}",
+  "roleUser": "Пользователь",
+  "roleBusiness": "Бизнес-пользователь",
+  "toursTitle": "Туры",
+  "myToursTitle": "Мои туры",
+  "toursBusinessHint": "Создавайте, редактируйте и публикуйте свои туры",
+  "toursUserHint": "Опубликованные туры от бизнес-пользователей",
+  "createTour": "Создать тур",
+  "editTour": "Редактировать тур",
+  "tourTitle": "Название",
+  "tourDescription": "Описание",
+  "tourDurationDays": "Длительность (дни)",
+  "tourPrice": "Стоимость",
+  "tourDistanceKm": "Дистанция (км)",
+  "tourStopsCount": "Количество остановок",
+  "tourDifficulty": "Сложность",
+  "tourPublished": "Опубликован",
+  "checkFormData": "Проверьте данные формы",
+  "noToursYet": "Пока нет туров",
+  "published": "Опубликован",
+  "draft": "Черновик",
+  "daysUnit": "дн.",
+  "stopsUnit": "ост.",
+  "deleteFailed": "Не удалось удалить: {error}",
+  "difficultyEasy": "Легко",
+  "difficultyMedium": "Средне",
+  "difficultyHard": "Сложно"
 }

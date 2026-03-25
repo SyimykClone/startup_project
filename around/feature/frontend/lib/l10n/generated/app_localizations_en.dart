@@ -235,4 +235,84 @@ class AppLocalizationsEn extends AppLocalizations {
   String googleSignInFailed(Object error) {
     return 'Google sign-in failed: $error';
   }
+
+  @override
+  String get roleUser => 'User';
+
+  @override
+  String get roleBusiness => 'Business user';
+
+  @override
+  String get toursTitle => 'Tours';
+
+  @override
+  String get myToursTitle => 'My tours';
+
+  @override
+  String get toursBusinessHint => 'Create, edit and publish your tours';
+
+  @override
+  String get toursUserHint => 'Published tours from business users';
+
+  @override
+  String get createTour => 'Create tour';
+
+  @override
+  String get editTour => 'Edit tour';
+
+  @override
+  String get tourTitle => 'Title';
+
+  @override
+  String get tourDescription => 'Description';
+
+  @override
+  String get tourDurationDays => 'Duration (days)';
+
+  @override
+  String get tourPrice => 'Price';
+
+  @override
+  String get tourDistanceKm => 'Distance (km)';
+
+  @override
+  String get tourStopsCount => 'Stops count';
+
+  @override
+  String get tourDifficulty => 'Difficulty';
+
+  @override
+  String get tourPublished => 'Published';
+
+  @override
+  String get checkFormData => 'Check form data';
+
+  @override
+  String get noToursYet => 'No tours yet';
+
+  @override
+  String get published => 'Published';
+
+  @override
+  String get draft => 'Draft';
+
+  @override
+  String get daysUnit => 'days';
+
+  @override
+  String get stopsUnit => 'stops';
+
+  @override
+  String deleteFailed(Object error) {
+    return 'Delete failed: $error';
+  }
+
+  @override
+  String get difficultyEasy => 'Easy';
+
+  @override
+  String get difficultyMedium => 'Medium';
+
+  @override
+  String get difficultyHard => 'Hard';
 }

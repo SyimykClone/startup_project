@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/poi.dart';
@@ -15,26 +15,36 @@ class PoiDetailScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text(poi.name)),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(poi.description, style: const TextStyle(fontSize: 16)),
-            const SizedBox(height: 12),
-            Text("Lat: ${poi.latitude}"),
-            Text("Lng: ${poi.longitude}"),
-            const SizedBox(height: 24),
-            if (routeState.loading) const LinearProgressIndicator(),
-            if (routeState.error != null) Text("Route error: ${routeState.error}"),
-            const Spacer(),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pushReplacementNamed(context, Routes.map, arguments: poi);
-              },
-              child: const Text("Открыть на карте и построить маршрут"),
-            )
-          ],
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(poi.description, style: const TextStyle(fontSize: 16)),
+              const SizedBox(height: 12),
+              Text('Lat: '),
+              Text('Lng: '),
+              const SizedBox(height: 24),
+              if (routeState.loading) const LinearProgressIndicator(),
+              if (routeState.error != null)
+                Text('Route error: '),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pushReplacementNamed(
+                      context,
+                      Routes.map,
+                      arguments: poi,
+                    );
+                  },
+                  child: const Text('Open on map and build route'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

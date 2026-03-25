@@ -91,11 +91,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(l10n.editProfile)),
       body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 360),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 360),
               child: Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
