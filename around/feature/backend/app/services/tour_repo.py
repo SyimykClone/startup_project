@@ -9,8 +9,12 @@ def _tour_from_row(row) -> Tour:
         business_user_id=row["business_user_id"],
         title=row["title"],
         description=row["description"],
-        duration_min=row["duration_min"],
+        duration_days=row["duration_days"],
+        price=float(row["price"]),
         distance_km=float(row["distance_km"]),
+        stops_count=row["stops_count"],
+        difficulty=row["difficulty"],
+        is_published=row["is_published"],
     )
 
 
@@ -19,9 +23,12 @@ async def list_all_tours() -> List[Tour]:
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT id, business_user_id, title, description, duration_min, distance_km
+            SELECT id, business_user_id, title, description,
+                   duration_days, price, distance_km,
+                   stops_count, difficulty, is_published
             FROM tours
-            ORDER BY id DESC
+            WHERE is_published = TRUE
+            ORDER BY updated_at DESC, id DESC
             """
         )
     return [_tour_from_row(r) for r in rows]
@@ -32,10 +39,12 @@ async def list_business_tours(business_user_id: int) -> List[Tour]:
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT id, business_user_id, title, description, duration_min, distance_km
+            SELECT id, business_user_id, title, description,
+                   duration_days, price, distance_km,
+                   stops_count, difficulty, is_published
             FROM tours
             WHERE business_user_id = $1
-            ORDER BY id DESC
+            ORDER BY updated_at DESC, id DESC
             """,
             business_user_id,
         )
@@ -47,7 +56,9 @@ async def get_tour(tour_id: int) -> Optional[Tour]:
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
-            SELECT id, business_user_id, title, description, duration_min, distance_km
+            SELECT id, business_user_id, title, description,
+                   duration_days, price, distance_km,
+                   stops_count, difficulty, is_published
             FROM tours
             WHERE id = $1
             """,
@@ -60,22 +71,34 @@ async def create_tour(
     business_user_id: int,
     title: str,
     description: str,
-    duration_min: int,
+    duration_days: int,
+    price: float,
     distance_km: float,
+    stops_count: int,
+    difficulty: str,
+    is_published: bool,
 ) -> Tour:
     pool = get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
-            INSERT INTO tours (business_user_id, title, description, duration_min, distance_km)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING id, business_user_id, title, description, duration_min, distance_km
+            INSERT INTO tours (
+                business_user_id, title, description, duration_days, price,
+                distance_km, stops_count, difficulty, is_published
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            RETURNING id, business_user_id, title, description, duration_days, price, distance_km,
+                      stops_count, difficulty, is_published
             """,
             business_user_id,
             title,
             description,
-            duration_min,
+            duration_days,
+            price,
             distance_km,
+            stops_count,
+            difficulty,
+            is_published,
         )
     return _tour_from_row(row)
 
@@ -84,8 +107,12 @@ async def update_tour(
     tour_id: int,
     title: str | None = None,
     description: str | None = None,
-    duration_min: int | None = None,
+    duration_days: int | None = None,
+    price: float | None = None,
     distance_km: float | None = None,
+    stops_count: int | None = None,
+    difficulty: str | None = None,
+    is_published: bool | None = None,
 ) -> Optional[Tour]:
     pool = get_pool()
     async with pool.acquire() as conn:
@@ -95,16 +122,26 @@ async def update_tour(
             SET
               title = COALESCE($2, title),
               description = COALESCE($3, description),
-              duration_min = COALESCE($4, duration_min),
-              distance_km = COALESCE($5, distance_km)
+              duration_days = COALESCE($4, duration_days),
+              price = COALESCE($5, price),
+              distance_km = COALESCE($6, distance_km),
+              stops_count = COALESCE($7, stops_count),
+              difficulty = COALESCE($8, difficulty),
+              is_published = COALESCE($9, is_published),
+              updated_at = now()
             WHERE id = $1
-            RETURNING id, business_user_id, title, description, duration_min, distance_km
+            RETURNING id, business_user_id, title, description, duration_days, price, distance_km,
+                      stops_count, difficulty, is_published
             """,
             tour_id,
             title,
             description,
-            duration_min,
+            duration_days,
+            price,
             distance_km,
+            stops_count,
+            difficulty,
+            is_published,
         )
     return _tour_from_row(row) if row else None
 

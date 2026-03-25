@@ -42,8 +42,12 @@ async def tours_create(payload: TourCreateIn, user_id: int = Depends(require_aut
         business_user_id=user_id,
         title=payload.title.strip(),
         description=payload.description.strip(),
-        duration_min=payload.duration_min,
+        duration_days=payload.duration_days,
+        price=payload.price,
         distance_km=payload.distance_km,
+        stops_count=payload.stops_count,
+        difficulty=payload.difficulty,
+        is_published=payload.is_published,
     )
 
 
@@ -66,8 +70,12 @@ async def tours_update(
         description=payload.description.strip()
         if payload.description is not None
         else None,
-        duration_min=payload.duration_min,
+        duration_days=payload.duration_days,
+        price=payload.price,
         distance_km=payload.distance_km,
+        stops_count=payload.stops_count,
+        difficulty=payload.difficulty,
+        is_published=payload.is_published,
     )
     if not updated:
         raise HTTPException(status_code=404, detail="Tour not found")
