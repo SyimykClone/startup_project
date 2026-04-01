@@ -13,6 +13,7 @@ from app.services.poi_repo import (
     remove_visited_poi,
 )
 from app.services.google_maps_service import GoogleMapsError, reverse_geocode
+from app.services.gamification_repo import register_new_place_visit
 from app.deps.auth import require_auth
 
 router = APIRouter(
@@ -60,7 +61,9 @@ async def visited_add(poi_id: int, user_id: int = Depends(require_auth)):
     if not poi:
         raise HTTPException(status_code=404, detail="POI not found")
 
-    await mark_poi_visited(user_id, poi_id)
+    first_visit = await mark_poi_visited(user_id, poi_id)
+    if first_visit:
+        await register_new_place_visit(user_id)
     return None
 
 

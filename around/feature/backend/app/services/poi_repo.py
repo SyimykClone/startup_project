@@ -171,19 +171,31 @@ async def list_visited_poi(users_id: int) -> List[Poi]:
     return [_poi_from_row(r) for r in rows]
 
 
-async def mark_poi_visited(users_id: int, poi_id: int) -> None:
+async def mark_poi_visited(users_id: int, poi_id: int) -> bool:
     pool = get_pool()
     async with pool.acquire() as conn:
-        await conn.execute(
+        inserted = await conn.fetchval(
             """
-            INSERT INTO users_visited_poi(users_id, poi_id, visited_at)
-            VALUES ($1, $2, now())
-            ON CONFLICT (users_id, poi_id)
-            DO UPDATE SET visited_at = EXCLUDED.visited_at
+            INSERT INTO users_visited_poi(users_id, poi_id)
+            VALUES ($1, $2)
+            ON CONFLICT (users_id, poi_id) DO NOTHING
+            RETURNING 1
             """,
             users_id,
             poi_id,
         )
+        if inserted == 1:
+            return True
+        await conn.execute(
+            """
+            UPDATE users_visited_poi
+            SET visited_at = now()
+            WHERE users_id = $1 AND poi_id = $2
+            """,
+            users_id,
+            poi_id,
+        )
+    return False
 
 
 async def remove_visited_poi(users_id: int, poi_id: int) -> bool:
