@@ -113,5 +113,46 @@
   "deleteFailed": "Не удалось удалить: {error}",
   "difficultyEasy": "Легко",
   "difficultyMedium": "Средне",
-  "difficultyHard": "Сложно"
+  "difficultyHard": "Сложно",
+  "gamificationTitle": "Прогресс",
+  "maxLevel": "МАКС",
+  "achievementsTitle": "Достижения",
+  "achievementFirstRoute": "Первый маршрут",
+  "achievementFiveRoutes": "5 маршрутов",
+  "achievementFirstNewPlace": "Первое новое место",
+  "levelLine": "Уровень {level} · {xp} XP",
+  "@levelLine": {
+    "placeholders": {
+      "level": {
+        "type": "int"
+      },
+      "xp": {
+        "type": "int"
+      }
+    }
+  },
+  "xpToNextLevel": "До следующего уровня: {xp} XP",
+  "@xpToNextLevel": {
+    "placeholders": {
+      "xp": {
+        "type": "String"
+      }
+    }
+  },
+  "routesBuiltLabel": "Построено маршрутов: {count}",
+  "@routesBuiltLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "newPlacesLabel": "Новых мест посещено: {count}",
+  "@newPlacesLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }
