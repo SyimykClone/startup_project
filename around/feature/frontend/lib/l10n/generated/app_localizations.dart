@@ -739,6 +739,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Hard'**
   String get difficultyHard;
+
+  /// No description provided for @gamificationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Progress'**
+  String get gamificationTitle;
+
+  /// No description provided for @maxLevel.
+  ///
+  /// In en, this message translates to:
+  /// **'MAX'**
+  String get maxLevel;
+
+  /// No description provided for @achievementsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Achievements'**
+  String get achievementsTitle;
+
+  /// No description provided for @achievementFirstRoute.
+  ///
+  /// In en, this message translates to:
+  /// **'First route'**
+  String get achievementFirstRoute;
+
+  /// No description provided for @achievementFiveRoutes.
+  ///
+  /// In en, this message translates to:
+  /// **'5 routes'**
+  String get achievementFiveRoutes;
+
+  /// No description provided for @achievementFirstNewPlace.
+  ///
+  /// In en, this message translates to:
+  /// **'First new place'**
+  String get achievementFirstNewPlace;
+
+  /// No description provided for @levelLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Level {level} · {xp} XP'**
+  String levelLine(int level, int xp);
+
+  /// No description provided for @xpToNextLevel.
+  ///
+  /// In en, this message translates to:
+  /// **'Next level: {xp} XP'**
+  String xpToNextLevel(String xp);
+
+  /// No description provided for @routesBuiltLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Routes built: {count}'**
+  String routesBuiltLabel(int count);
+
+  /// No description provided for @newPlacesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'New places visited: {count}'**
+  String newPlacesLabel(int count);
 }
 
 class _AppLocalizationsDelegate

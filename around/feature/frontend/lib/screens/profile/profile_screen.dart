@@ -4,8 +4,10 @@ import 'package:provider/provider.dart';
 import '../../core/config/app_config.dart';
 import '../../core/i18n/l10n.dart';
 import '../../core/network/api_client.dart';
+import '../../models/gamification.dart';
 import '../../core/router/app_router.dart';
 import '../../models/poi.dart';
+import '../../services/gamification_service.dart';
 import '../../services/poi_service.dart';
 import '../../state/auth_state.dart';
 import '../../state/locale_state.dart';
@@ -24,8 +26,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   static const base = Color(0xFF151E3F);
 
   late PoiService _poiService;
+  late GamificationService _gamificationService;
   bool _initialized = false;
   List<Poi> _visited = [];
+  GamificationProgress? _progress;
+  bool _loadingProgress = false;
+  String? _progressError;
   bool _loadingVisited = false;
   String? _visitedError;
 
@@ -41,7 +47,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ApiClient(cfg.apiBaseUrl, token: token),
       useMock: cfg.useMock,
     );
+    _gamificationService = GamificationService(
+      ApiClient(cfg.apiBaseUrl, token: token),
+    );
 
+    _loadProgress();
     _loadVisited();
   }
 
@@ -49,7 +59,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void didUpdateWidget(covariant ProfileScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.refreshTick != widget.refreshTick) {
+      _loadProgress();
       _loadVisited();
+    }
+  }
+
+  Future<void> _loadProgress() async {
+    setState(() {
+      _loadingProgress = true;
+      _progressError = null;
+    });
+    try {
+      final data = await _gamificationService.fetchMe();
+      if (!mounted) return;
+      setState(() => _progress = data);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _progressError = e.toString());
+    } finally {
+      if (mounted) setState(() => _loadingProgress = false);
     }
   }
 
@@ -188,6 +216,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 20),
+            _buildGamificationCard(context),
+            const SizedBox(height: 18),
             Row(
               children: [
                 Expanded(
@@ -309,5 +339,149 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildGamificationCard(BuildContext context) {
+    const border = Color(0x1A151E3F);
+    if (_loadingProgress) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: border),
+        ),
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_progressError != null || _progress == null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.l10n.gamificationTitle,
+              style: const TextStyle(
+                color: base,
+                fontWeight: FontWeight.w800,
+                fontSize: 17,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(context.l10n.loadError(_progressError ?? 'empty response')),
+          ],
+        ),
+      );
+    }
+
+    final p = _progress!;
+    final progress = (p.xpProgressPercent / 100).clamp(0.0, 1.0);
+    final nextLevel = p.nextLevelXp?.toString() ?? context.l10n.maxLevel;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            context.l10n.gamificationTitle,
+            style: const TextStyle(
+              color: base,
+              fontWeight: FontWeight.w800,
+              fontSize: 17,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            context.l10n.levelLine(p.level, p.xp),
+            style: const TextStyle(color: base, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(100),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 10,
+              backgroundColor: const Color(0xFFF2F3F8),
+              valueColor: const AlwaysStoppedAnimation<Color>(accent),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            context.l10n.xpToNextLevel(nextLevel),
+            style: TextStyle(color: base.withOpacity(0.75), fontSize: 12),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            context.l10n.routesBuiltLabel(p.routesBuilt),
+            style: const TextStyle(color: base, fontWeight: FontWeight.w600),
+          ),
+          Text(
+            context.l10n.newPlacesLabel(p.newPlacesVisited),
+            style: const TextStyle(color: base, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            context.l10n.achievementsTitle,
+            style: const TextStyle(color: base, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
+          ...p.achievements.map(
+            (a) => Padding(
+              padding: const EdgeInsets.only(bottom: 5),
+              child: Row(
+                children: [
+                  Icon(
+                    a.unlocked ? Icons.emoji_events : Icons.lock_outline,
+                    size: 16,
+                    color: a.unlocked ? accent : base.withOpacity(0.45),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _achievementTitle(context, a.code, a.title),
+                      style: TextStyle(
+                        color: a.unlocked ? base : base.withOpacity(0.7),
+                        fontWeight: a.unlocked
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _achievementTitle(BuildContext context, String code, String fallback) {
+    switch (code) {
+      case 'first_route':
+        return context.l10n.achievementFirstRoute;
+      case 'five_routes':
+        return context.l10n.achievementFiveRoutes;
+      case 'first_new_place':
+        return context.l10n.achievementFirstNewPlace;
+      default:
+        return fallback;
+    }
   }
 }

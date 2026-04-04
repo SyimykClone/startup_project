@@ -349,4 +349,42 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get difficultyHard => 'Сложно';
+
+  @override
+  String get gamificationTitle => 'Прогресс';
+
+  @override
+  String get maxLevel => 'МАКС';
+
+  @override
+  String get achievementsTitle => 'Достижения';
+
+  @override
+  String get achievementFirstRoute => 'Первый маршрут';
+
+  @override
+  String get achievementFiveRoutes => '5 маршрутов';
+
+  @override
+  String get achievementFirstNewPlace => 'Первое новое место';
+
+  @override
+  String levelLine(int level, int xp) {
+    return 'Уровень $level · $xp XP';
+  }
+
+  @override
+  String xpToNextLevel(String xp) {
+    return 'До следующего уровня: $xp XP';
+  }
+
+  @override
+  String routesBuiltLabel(int count) {
+    return 'Построено маршрутов: $count';
+  }
+
+  @override
+  String newPlacesLabel(int count) {
+    return 'Новых мест посещено: $count';
+  }
 }
