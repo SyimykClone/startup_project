@@ -344,4 +344,42 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get difficultyHard => 'Hard';
+
+  @override
+  String get gamificationTitle => 'Progress';
+
+  @override
+  String get maxLevel => 'MAX';
+
+  @override
+  String get achievementsTitle => 'Achievements';
+
+  @override
+  String get achievementFirstRoute => 'First route';
+
+  @override
+  String get achievementFiveRoutes => '5 routes';
+
+  @override
+  String get achievementFirstNewPlace => 'First new place';
+
+  @override
+  String levelLine(int level, int xp) {
+    return 'Level $level · $xp XP';
+  }
+
+  @override
+  String xpToNextLevel(String xp) {
+    return 'Next level: $xp XP';
+  }
+
+  @override
+  String routesBuiltLabel(int count) {
+    return 'Routes built: $count';
+  }
+
+  @override
+  String newPlacesLabel(int count) {
+    return 'New places visited: $count';
+  }
 }

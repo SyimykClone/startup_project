@@ -113,5 +113,46 @@
   "deleteFailed": "Delete failed: {error}",
   "difficultyEasy": "Easy",
   "difficultyMedium": "Medium",
-  "difficultyHard": "Hard"
+  "difficultyHard": "Hard",
+  "gamificationTitle": "Progress",
+  "maxLevel": "MAX",
+  "achievementsTitle": "Achievements",
+  "achievementFirstRoute": "First route",
+  "achievementFiveRoutes": "5 routes",
+  "achievementFirstNewPlace": "First new place",
+  "levelLine": "Level {level} · {xp} XP",
+  "@levelLine": {
+    "placeholders": {
+      "level": {
+        "type": "int"
+      },
+      "xp": {
+        "type": "int"
+      }
+    }
+  },
+  "xpToNextLevel": "Next level: {xp} XP",
+  "@xpToNextLevel": {
+    "placeholders": {
+      "xp": {
+        "type": "String"
+      }
+    }
+  },
+  "routesBuiltLabel": "Routes built: {count}",
+  "@routesBuiltLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "newPlacesLabel": "New places visited: {count}",
+  "@newPlacesLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }
