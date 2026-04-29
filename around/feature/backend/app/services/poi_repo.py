@@ -1,4 +1,4 @@
-from typing import List, Optional
+﻿from typing import List, Optional
 from app.core.db import get_pool
 from app.models.poi import Poi
 
@@ -147,7 +147,6 @@ async def remove_favorite_poi(users_id: int, poi_id: int) -> bool:
             users_id,
             poi_id,
         )
-    # asyncpg returns: "DELETE <rows_count>"
     return result.endswith(" 1")
 
 

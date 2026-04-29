@@ -1,4 +1,4 @@
-from typing import Optional
+﻿from typing import Optional
 from app.core.db import get_pool
 
 async def get_user_by_email(email: str) -> Optional[dict]:
@@ -61,7 +61,6 @@ async def is_username_taken_by_other(user_id: int, username: str) -> bool:
 
 async def update_user_profile(
     user_id: int,
-    *,
     username: str | None = None,
     password_hash: str | None = None,
     avatar_path: str | None = None,
