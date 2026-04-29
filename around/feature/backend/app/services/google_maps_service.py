@@ -1,4 +1,4 @@
-import httpx
+﻿import httpx
 import re
 from app.core.config import settings
 from app.models.route import RouteRequest, RouteResponse
@@ -62,7 +62,6 @@ def _to_google_mode(profile: str) -> str:
 
 
 def _pick_best_name_from_results(results: list[dict], fallback: str) -> str:
-    # Prefer human-friendly names over technical ids/plus codes.
     preferred_types = [
         "point_of_interest",
         "establishment",
@@ -86,7 +85,6 @@ def _pick_best_name_from_results(results: list[dict], fallback: str) -> str:
 
     formatted = (results[0].get("formatted_address") or "").strip() if results else ""
     if formatted:
-        # "улица ... , город, страна" -> take the readable first segment
         first = formatted.split(",")[0].strip()
         if first:
             return first
@@ -96,7 +94,6 @@ def _pick_best_name_from_results(results: list[dict], fallback: str) -> str:
 
 def _looks_like_code(value: str) -> bool:
     v = value.strip().upper()
-    # e.g. "8Q7X+5R" / "7G3Q+9M TOKMOK"
     return bool(re.match(r"^[A-Z0-9+\s-]{5,}$", v))
 
 
