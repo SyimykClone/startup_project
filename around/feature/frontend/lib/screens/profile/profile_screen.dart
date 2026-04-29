@@ -35,6 +35,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _loadingVisited = false;
   String? _visitedError;
 
+  String _fallbackUsername() =>
+      Localizations.localeOf(context).languageCode == 'ru'
+          ? 'Путешественник'
+          : 'Traveler';
+
+  String _detailsLabel() =>
+      Localizations.localeOf(context).languageCode == 'ru'
+          ? 'Подробнее'
+          : 'Details';
+
+  String _openMapLabel() =>
+      Localizations.localeOf(context).languageCode == 'ru'
+          ? 'Открыть на карте'
+          : 'Open on map';
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -102,7 +117,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final auth = context.watch<AuthState>();
-    final username = auth.username ?? 'user';
+    final rawUsername = auth.username?.trim();
+    final username =
+        rawUsername == null || rawUsername.isEmpty || rawUsername.toLowerCase() == 'user'
+            ? _fallbackUsername()
+            : rawUsername;
     final avatarUrl = auth.avatarUrl;
     final localeState = context.watch<LocaleState>();
 
@@ -311,23 +330,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFF3D9),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              l10n.visitedBadge,
-                              style: const TextStyle(
-                                color: base,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 12,
+                          PopupMenuButton<String>(
+                            onSelected: (value) {
+                              if (value == 'details') {
+                                Navigator.pushNamed(
+                                  context,
+                                  Routes.poiDetail,
+                                  arguments: poi,
+                                );
+                              }
+                              if (value == 'map') {
+                                Navigator.pushNamed(
+                                  context,
+                                  Routes.map,
+                                  arguments: AppShellArgs(
+                                    initialIndex: 2,
+                                    initialPoi: poi,
+                                  ),
+                                );
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF3D9),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                l10n.visitedBadge,
+                                style: const TextStyle(
+                                  color: base,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
+                            itemBuilder: (_) => [
+                              PopupMenuItem(
+                                value: 'details',
+                                child: Text(_detailsLabel()),
+                              ),
+                              PopupMenuItem(
+                                value: 'map',
+                                child: Text(_openMapLabel()),
+                              ),
+                            ],
                           ),
                         ],
                       ),

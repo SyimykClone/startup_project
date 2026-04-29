@@ -1,6 +1,7 @@
 ﻿import 'package:around/state/auth_state.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -16,7 +17,9 @@ import '../../state/poi_state.dart';
 import '../../state/route_state.dart';
 
 class MapScreen extends StatefulWidget {
-  const MapScreen({super.key});
+  const MapScreen({super.key, this.initialPoi});
+
+  final Poi? initialPoi;
 
   @override
   State<MapScreen> createState() => _MapScreenState();
@@ -54,6 +57,7 @@ class _MapScreenState extends State<MapScreen> {
   Set<Polyline> _polylines = <Polyline>{};
 
   bool _servicesInitialized = false;
+  bool _initialPoiHandled = false;
 
   String _modeText(String mode) {
     switch (mode) {
@@ -87,9 +91,18 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _onMapCreated(GoogleMapController controller) async {
     _map = controller;
-    await _loadUserLocation();
+    try {
+      await _loadUserLocation();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.userLocationNotFound)),
+        );
+      }
+    }
     await _loadPoiAndDrawMarkers();
     await _loadFavorites();
+    await _openInitialPoiIfNeeded();
   }
 
   Future<void> _loadUserLocation() async {
@@ -124,7 +137,6 @@ class _MapScreenState extends State<MapScreen> {
           ..addAll(favorites.map((p) => p.id));
       });
     } catch (_) {
-      // keep map functional if favorites fail
     }
   }
 
@@ -249,11 +261,7 @@ class _MapScreenState extends State<MapScreen> {
       selectedMode = null;
     }
 
-    final options = <Poi>[...poiState.poi];
-    final hasSelectedInOptions = options.any((p) => p.id == selectedPoi.id);
-    if (!hasSelectedInOptions) {
-      options.insert(0, selectedPoi);
-    }
+    final options = _buildDestinationOptions(poiState.poi, selectedPoi);
 
     await showModalBottomSheet<void>(
       context: context,
@@ -385,8 +393,13 @@ class _MapScreenState extends State<MapScreen> {
   Future<void> _buildAndDrawRoute(int index) async {
     final routeState = context.read<RouteState>();
     if (_userPos == null) {
-      routeState.fail(context.l10n.userLocationNotFound);
-      return;
+      try {
+        await _loadUserLocation();
+      } catch (_) {}
+      if (_userPos == null) {
+        routeState.fail(context.l10n.userLocationNotFound);
+        return;
+      }
     }
 
     final destination = _destinations[index];
@@ -452,6 +465,67 @@ class _MapScreenState extends State<MapScreen> {
         ),
       };
     });
+  }
+
+  List<Poi> _buildDestinationOptions(List<Poi> allPoi, Poi selectedPoi) {
+    if (selectedPoi.category != 'custom') {
+      final options = <Poi>[...allPoi];
+      final hasSelected = options.any((p) => p.id == selectedPoi.id);
+      if (!hasSelected) {
+        options.insert(0, selectedPoi);
+      }
+      return options;
+    }
+
+    final nearest = [...allPoi]
+      ..sort(
+        (a, b) => Geolocator.distanceBetween(
+          selectedPoi.latitude,
+          selectedPoi.longitude,
+          a.latitude,
+          a.longitude,
+        ).compareTo(
+          Geolocator.distanceBetween(
+            selectedPoi.latitude,
+            selectedPoi.longitude,
+            b.latitude,
+            b.longitude,
+          ),
+        ),
+      );
+
+    return [
+      selectedPoi,
+      ...nearest.where((p) => p.id != selectedPoi.id).take(5),
+    ];
+  }
+
+  Future<void> _openInitialPoiIfNeeded() async {
+    final initialPoi = widget.initialPoi;
+    if (_initialPoiHandled || initialPoi == null) return;
+    _initialPoiHandled = true;
+
+    final markerId = MarkerId('poi_${initialPoi.id}');
+    if (!_markers.any((m) => m.markerId == markerId)) {
+      final refreshed = {..._markers};
+      refreshed.add(
+        Marker(
+          markerId: markerId,
+          position: LatLng(initialPoi.latitude, initialPoi.longitude),
+          infoWindow: InfoWindow(title: initialPoi.name),
+          onTap: () => setState(() => _selectedPoi = initialPoi),
+        ),
+      );
+      setState(() => _markers = refreshed);
+    }
+
+    setState(() => _selectedPoi = initialPoi);
+    await _map?.animateCamera(
+      CameraUpdate.newLatLngZoom(
+        LatLng(initialPoi.latitude, initialPoi.longitude),
+        15,
+      ),
+    );
   }
 
   Future<void> _toggleFavorite() async {

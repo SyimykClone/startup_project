@@ -1,34 +1,31 @@
-# ARound Database (PostgreSQL)
+# ARound Database
 
-## Files
-- `feature/database/init.sql` - base `poi` schema
-- `feature/database/seed.sql` - initial POI data
-- `feature/database/users.sql` - users table
-- `feature/database/visits.sql` - user-to-poi visits
+SQL-скрипты схемы и начальных данных проекта ARound. Рабочая база данных проекта размещена в Supabase.
 
-## Local Run (Docker Compose)
-From repository root:
+## SQL-файлы
 
-```powershell
-docker compose up -d postgres
-```
+- `feature/database/init.sql` - базовая схема и справочные данные
+- `feature/database/seed.sql` - начальные данные по локациям
+- `feature/database/users.sql` - таблицы пользователей и авторизации
+- `feature/database/profile.sql` - данные профиля
 
-Connection settings:
-- host: `127.0.0.1`
-- port: `5433`
-- database: `around`
-- user: `postgres`
-- password: `123456`
+## Как применять скрипты
 
-## Migration Strategy
-Init scripts from `/docker-entrypoint-initdb.d` run only when the Postgres data volume is created the first time.
+Можно использовать один из вариантов:
 
-For existing volumes, apply schema changes manually:
+1. SQL Editor в Supabase
+2. Миграции Supabase
+3. Любой PostgreSQL-клиент, подключенный к базе Supabase
 
-```powershell
-docker exec -i around-postgres psql -U postgres -d around < feature/database/users.sql
-docker exec -i around-postgres psql -U postgres -d around < feature/database/visits.sql
-```
+Рекомендуемый порядок применения:
 
-Recommended next step for team workflow:
-- introduce explicit migrations (for example, Alembic), and stop relying on one-time init scripts for schema evolution.
+1. `init.sql`
+2. `users.sql`
+3. `profile.sql`
+4. `seed.sql`
+
+## Примечания
+
+- Backend подключается к Supabase через `DATABASE_URL` из `feature/backend/.env`.
+- Если схема базы меняется, обновляйте SQL-скрипты в этом каталоге, чтобы репозиторий оставался актуальным.
+- `seed.sql` можно не применять в production, но он полезен для разработки, тестов и демонстрации проекта.

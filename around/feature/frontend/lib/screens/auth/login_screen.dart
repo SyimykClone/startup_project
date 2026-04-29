@@ -115,6 +115,9 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     const base = Color(0xFF151E3F);
     final l10n = context.l10n;
+    final helpTooltip = Localizations.localeOf(context).languageCode == 'ru'
+        ? 'Подсказка'
+        : 'Help';
 
     final auth = context.watch<AuthState>();
     final disabled = auth.isLoading || _googleLoading;
