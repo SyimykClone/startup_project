@@ -4,21 +4,23 @@ import '../../core/i18n/l10n.dart';
 import '../../core/onboarding/auth_onboarding_service.dart';
 import '../../core/router/app_router.dart';
 
-class AuthChoiceScreen extends StatefulWidget {
-  const AuthChoiceScreen({super.key});
+class AuthChoiceOnboardingScreen extends StatefulWidget {
+  const AuthChoiceOnboardingScreen({super.key});
 
   @override
-  State<AuthChoiceScreen> createState() => _AuthChoiceScreenState();
+  State<AuthChoiceOnboardingScreen> createState() =>
+      _AuthChoiceOnboardingScreenState();
 }
 
-class _AuthChoiceScreenState extends State<AuthChoiceScreen> {
-  bool _hintScheduled = false;
+class _AuthChoiceOnboardingScreenState
+    extends State<AuthChoiceOnboardingScreen> {
+  bool _introScheduled = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_hintScheduled) return;
-    _hintScheduled = true;
+    if (_introScheduled) return;
+    _introScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       AuthOnboardingService.showAuthChoiceIfNeeded(context);
@@ -30,9 +32,6 @@ class _AuthChoiceScreenState extends State<AuthChoiceScreen> {
     const accent = Color(0xFFFAA916);
     const base = Color(0xFF151E3F);
     final l10n = context.l10n;
-    final helpTooltip = Localizations.localeOf(context).languageCode == 'ru'
-        ? 'Подсказка'
-        : 'Help';
 
     return Scaffold(
       body: Container(
@@ -53,16 +52,6 @@ class _AuthChoiceScreenState extends State<AuthChoiceScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: IconButton(
-                        tooltip: helpTooltip,
-                        onPressed: () => AuthOnboardingService.showAuthChoiceHint(
-                          context,
-                        ),
-                        icon: const Icon(Icons.help_outline_rounded, color: base),
-                      ),
-                    ),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 20,
@@ -108,12 +97,11 @@ class _AuthChoiceScreenState extends State<AuthChoiceScreen> {
                     SizedBox(
                       height: 50,
                       child: FilledButton.icon(
-                        onPressed: () =>
-                            Navigator.pushNamed(
-                              context,
-                              Routes.login,
-                              arguments: const AuthRoleArgs(userType: 'user'),
-                            ),
+                        onPressed: () => Navigator.pushNamed(
+                          context,
+                          Routes.login,
+                          arguments: const AuthRoleArgs(userType: 'user'),
+                        ),
                         icon: const Icon(Icons.person_outline_rounded),
                         label: Text(l10n.roleUser),
                       ),
@@ -122,12 +110,11 @@ class _AuthChoiceScreenState extends State<AuthChoiceScreen> {
                     SizedBox(
                       height: 50,
                       child: OutlinedButton.icon(
-                        onPressed: () =>
-                            Navigator.pushNamed(
-                              context,
-                              Routes.login,
-                              arguments: const AuthRoleArgs(userType: 'business'),
-                            ),
+                        onPressed: () => Navigator.pushNamed(
+                          context,
+                          Routes.login,
+                          arguments: const AuthRoleArgs(userType: 'business'),
+                        ),
                         icon: const Icon(Icons.business_center_outlined),
                         label: Text(l10n.roleBusiness),
                       ),

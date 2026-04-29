@@ -28,7 +28,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void initState() {
     super.initState();
     final name = context.read<AuthState>().username;
-    if (name != null) {
+    if (name != null &&
+        name.trim().isNotEmpty &&
+        name.trim().toLowerCase() != 'user') {
       _usernameCtrl.text = name;
     }
   }

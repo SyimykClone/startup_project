@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../models/poi.dart';
 import '../ar/ar_placeholder_screen.dart';
 import '../favorites/favorites_screen.dart';
 import '../profile/profile_screen.dart';
@@ -7,17 +8,30 @@ import '../tours/tours_screen.dart';
 import 'map_screen.dart';
 
 class AppShellScreen extends StatefulWidget {
-  const AppShellScreen({super.key});
+  const AppShellScreen({
+    super.key,
+    this.initialIndex = 2,
+    this.initialPoi,
+  });
+
+  final int initialIndex;
+  final Poi? initialPoi;
 
   @override
   State<AppShellScreen> createState() => _AppShellScreenState();
 }
 
 class _AppShellScreenState extends State<AppShellScreen> {
-  int _index = 2;
+  late int _index;
   int _favoritesRefreshTick = 0;
   int _profileRefreshTick = 0;
   int _toursRefreshTick = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _index = widget.initialIndex;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +44,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
         children: [
           FavoritesScreen(refreshTick: _favoritesRefreshTick),
           const ArPlaceholderScreen(),
-          const MapScreen(),
+          MapScreen(initialPoi: widget.initialPoi),
           ToursScreen(refreshTick: _toursRefreshTick),
           ProfileScreen(refreshTick: _profileRefreshTick),
         ],

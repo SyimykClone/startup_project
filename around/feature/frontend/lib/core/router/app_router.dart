@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../screens/auth/auth_choice_screen.dart';
+import '../../screens/auth/auth_choice_onboarding_screen.dart';
 import '../../screens/auth/login_screen.dart';
 import '../../screens/auth/register_screen.dart';
 import '../../screens/auth/splash_screen.dart';
@@ -27,6 +27,16 @@ class AuthRoleArgs {
   const AuthRoleArgs({required this.userType});
 }
 
+class AppShellArgs {
+  final int initialIndex;
+  final Poi? initialPoi;
+
+  const AppShellArgs({
+    this.initialIndex = 2,
+    this.initialPoi,
+  });
+}
+
 class AppRouter {
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -34,7 +44,9 @@ class AppRouter {
         return MaterialPageRoute(builder: (_) => const SplashScreen());
 
       case Routes.auth:
-        return MaterialPageRoute(builder: (_) => const AuthChoiceScreen());
+        return MaterialPageRoute(
+          builder: (_) => const AuthChoiceOnboardingScreen(),
+        );
 
       case Routes.login:
         final args = settings.arguments;
@@ -51,7 +63,14 @@ class AppRouter {
         );
 
       case Routes.map:
-        return MaterialPageRoute(builder: (_) => const AppShellScreen());
+        final args = settings.arguments;
+        final shellArgs = args is AppShellArgs ? args : null;
+        return MaterialPageRoute(
+          builder: (_) => AppShellScreen(
+            initialIndex: shellArgs?.initialIndex ?? 2,
+            initialPoi: shellArgs?.initialPoi,
+          ),
+        );
 
       case Routes.editProfile:
         return MaterialPageRoute(builder: (_) => const EditProfileScreen());
