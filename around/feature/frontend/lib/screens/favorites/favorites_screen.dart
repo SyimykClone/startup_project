@@ -28,16 +28,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   String? _error;
   List<Poi> _favorites = [];
 
-  String _detailsLabel() =>
-      Localizations.localeOf(context).languageCode == 'ru'
-          ? 'Подробнее'
-          : 'Details';
-
-  String _openMapLabel() =>
-      Localizations.localeOf(context).languageCode == 'ru'
-          ? 'Открыть на карте'
-          : 'Open on map';
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -205,67 +195,111 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(color: base.withOpacity(0.18)),
                         ),
-                        child: Row(
+                        child: Column(
                           children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFF3D9),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(Icons.favorite, color: accent),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    poi.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                      color: base,
-                                    ),
+                            Row(
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFF3D9),
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    poi.description,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: base.withOpacity(0.65),
-                                      fontSize: 12,
-                                    ),
+                                  child: const Icon(
+                                    Icons.favorite,
+                                    color: accent,
                                   ),
-                                ],
-                              ),
-                            ),
-                            PopupMenuButton<String>(
-                              onSelected: (value) {
-                                if (value == 'details') _openPoiDetails(poi);
-                                if (value == 'map') _openPoiOnMap(poi);
-                                if (value == 'remove') {
-                                  _confirmAndRemoveFavorite(poi);
-                                }
-                              },
-                              itemBuilder: (_) => [
-                                PopupMenuItem(
-                                  value: 'details',
-                                  child: Text(_detailsLabel()),
                                 ),
-                                PopupMenuItem(
-                                  value: 'map',
-                                  child: Text(_openMapLabel()),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        poi.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w700,
+                                          color: base,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        poi.description,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: base.withOpacity(0.65),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                PopupMenuItem(
-                                  value: 'remove',
-                                  child: Text(l10n.remove),
+                                PopupMenuButton<String>(
+                                  onSelected: (value) {
+                                    if (value == 'details') {
+                                      _openPoiDetails(poi);
+                                    }
+                                    if (value == 'map') _openPoiOnMap(poi);
+                                    if (value == 'remove') {
+                                      _confirmAndRemoveFavorite(poi);
+                                    }
+                                  },
+                                  itemBuilder: (_) => [
+                                    PopupMenuItem(
+                                      value: 'details',
+                                      child: Text(l10n.details),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'map',
+                                      child: Text(l10n.openOnMap),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'remove',
+                                      child: Text(l10n.remove),
+                                    ),
+                                  ],
                                 ),
                               ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: () => _openPoiOnMap(poi),
+                                    icon: const Icon(
+                                      Icons.map_outlined,
+                                      size: 18,
+                                    ),
+                                    label: Text(l10n.openOnMap),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: FilledButton.icon(
+                                    onPressed: () => _openPoiDetails(poi),
+                                    icon: const Icon(
+                                      Icons.info_outline,
+                                      size: 18,
+                                    ),
+                                    label: Text(l10n.details),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton.icon(
+                                onPressed: () => _confirmAndRemoveFavorite(poi),
+                                icon: const Icon(Icons.delete_outline, size: 18),
+                                label: Text(l10n.remove),
+                              ),
                             ),
                           ],
                         ),

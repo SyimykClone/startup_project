@@ -49,7 +49,66 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       imageQuality: 85,
     );
     if (picked == null) return;
-    setState(() => _avatarPath = picked.path);
+    if (!mounted) return;
+    final approved = await _showAvatarPreview(picked.path);
+    if (approved == true && mounted) {
+      setState(() => _avatarPath = picked.path);
+    }
+  }
+
+  Future<bool?> _showAvatarPreview(String path) {
+    final l10n = context.l10n;
+    return showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  l10n.photoPreviewTitle,
+                  style: const TextStyle(
+                    color: _base,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ClipOval(
+                  child: Image.file(
+                    File(path),
+                    width: 168,
+                    height: 168,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: Text(l10n.chooseAnotherPhoto),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: Text(l10n.usePhoto),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _save() async {
@@ -157,6 +216,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       l10n.tapChoosePhoto,
                       style: TextStyle(color: _base.withOpacity(0.75)),
                     ),
+                    if (_avatarPath != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        l10n.photoPreviewTitle,
+                        style: TextStyle(
+                          color: _base.withOpacity(0.68),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 18),
                     TextField(
                       controller: _usernameCtrl,

@@ -127,6 +127,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get favoritesTitle => 'Favorite places';
 
   @override
+  String get tabFavorites => 'Favorites';
+
+  @override
+  String get tabAr => 'AR';
+
+  @override
+  String get tabMap => 'Map';
+
+  @override
+  String get tabTours => 'Tours';
+
+  @override
+  String get tabProfile => 'Profile';
+
+  @override
+  String get details => 'Details';
+
+  @override
+  String get openOnMap => 'Open on map';
+
+  @override
+  String get buildRoute => 'Build route';
+
+  @override
   String get visitedTitle => 'Visited places';
 
   @override
@@ -170,6 +194,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tapChoosePhoto => 'Tap to choose photo';
+
+  @override
+  String get photoPreviewTitle => 'Photo preview';
+
+  @override
+  String get usePhoto => 'Use photo';
+
+  @override
+  String get chooseAnotherPhoto => 'Choose another';
 
   @override
   String get newPassword => 'New password';

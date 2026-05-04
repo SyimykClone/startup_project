@@ -44,9 +44,12 @@ class _MapScreenState extends State<MapScreen> {
   late PoiService _poiService;
   late RouteService _routeService;
   final _location = LocationService();
+  final _searchCtrl = TextEditingController();
 
   LatLng? _userPos;
   Poi? _selectedPoi;
+  String _searchQuery = '';
+  String _selectedCategory = 'all';
 
   final Set<int> _favoritePoiIds = <int>{};
   final List<_DestinationItem> _destinations = [];
@@ -55,6 +58,11 @@ class _MapScreenState extends State<MapScreen> {
 
   Set<Marker> _markers = <Marker>{};
   Set<Polyline> _polylines = <Polyline>{};
+  List<RouteHistoryItem> _routeHistory = [];
+  bool _historyLoading = false;
+  List<Poi> _googlePlaces = [];
+  bool _placesLoading = false;
+  String? _selectedNearbyType;
 
   bool _servicesInitialized = false;
   bool _initialPoiHandled = false;
@@ -68,6 +76,111 @@ class _MapScreenState extends State<MapScreen> {
       default:
         return mode;
     }
+  }
+
+  bool get _isRu => Localizations.localeOf(context).languageCode == 'ru';
+
+  String _categoryText(String category) {
+    switch (category) {
+      case 'all':
+        return _isRu ? 'Все' : 'All';
+      case 'monument':
+        return _isRu ? 'Памятники' : 'Monuments';
+      case 'memorial':
+        return _isRu ? 'Мемориалы' : 'Memorials';
+      case 'custom':
+        return _isRu ? 'Мои точки' : 'My points';
+      case 'google_place':
+        return _isRu ? 'Google Places' : 'Google Places';
+      default:
+        return category;
+    }
+  }
+
+  String _searchHint() => _isRu ? 'Найти место' : 'Search places';
+
+  String _historyTitle() => _isRu ? 'Недавние маршруты' : 'Recent routes';
+
+  String _emptyHistoryText() =>
+      _isRu ? 'История маршрутов пока пустая' : 'No route history yet';
+
+  String _nearbyTitle() => _isRu ? 'Рядом' : 'Nearby';
+
+  String _nearbyTypeText(String type) {
+    switch (type) {
+      case 'tourist_attraction':
+        return _isRu ? 'Достопримечательности' : 'Sights';
+      case 'cafe':
+        return _isRu ? 'Кафе' : 'Cafe';
+      case 'lodging':
+        return _isRu ? 'Отели' : 'Hotels';
+      case 'museum':
+        return _isRu ? 'Музеи' : 'Museums';
+      case 'park':
+        return _isRu ? 'Парки' : 'Parks';
+      default:
+        return type;
+    }
+  }
+
+  String _distanceToSelectedLabel(Poi poi) {
+    final userPos = _userPos;
+    if (userPos == null) return '';
+    final meters = Geolocator.distanceBetween(
+      userPos.latitude,
+      userPos.longitude,
+      poi.latitude,
+      poi.longitude,
+    );
+    if (meters >= 1000) {
+      return '${(meters / 1000).toStringAsFixed(1)} ${context.l10n.kmUnit}';
+    }
+    return '${meters.toStringAsFixed(0)} ${_isRu ? 'м' : 'm'}';
+  }
+
+  List<Poi> _filteredPoi(List<Poi> list) {
+    final query = _searchQuery.trim().toLowerCase();
+    return list.where((poi) {
+      final categoryOk =
+          _selectedCategory == 'all' || poi.category == _selectedCategory;
+      final queryOk =
+          query.isEmpty ||
+          poi.name.toLowerCase().contains(query) ||
+          poi.description.toLowerCase().contains(query);
+      return categoryOk && queryOk;
+    }).toList();
+  }
+
+  List<Poi> _filteredGooglePlaces() {
+    final query = _searchQuery.trim().toLowerCase();
+    return _googlePlaces.where((poi) {
+      return query.isEmpty ||
+          poi.name.toLowerCase().contains(query) ||
+          poi.description.toLowerCase().contains(query) ||
+          (poi.address ?? '').toLowerCase().contains(query);
+    }).toList();
+  }
+
+  List<String> _availableCategories(List<Poi> list) {
+    final categories = list
+        .map((p) => p.category)
+        .whereType<String>()
+        .where((c) => c.trim().isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    return ['all', ...categories];
+  }
+
+  void _applyMapFilters() {
+    final poi = context.read<PoiState>().poi;
+    _drawPoiMarkers([..._filteredPoi(poi), ..._filteredGooglePlaces()]);
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -102,6 +215,7 @@ class _MapScreenState extends State<MapScreen> {
     }
     await _loadPoiAndDrawMarkers();
     await _loadFavorites();
+    await _loadRouteHistory();
     await _openInitialPoiIfNeeded();
   }
 
@@ -119,7 +233,7 @@ class _MapScreenState extends State<MapScreen> {
     try {
       final list = await _poiService.fetchPoiList();
       poiState.setPoi(list);
-      _drawPoiMarkers(list);
+      _applyMapFilters();
     } catch (e) {
       poiState.setError(e.toString());
     } finally {
@@ -140,6 +254,113 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  Future<void> _loadRouteHistory() async {
+    if (_historyLoading) return;
+    setState(() => _historyLoading = true);
+    try {
+      final history = await _routeService.fetchHistory(limit: 8);
+      if (!mounted) return;
+      setState(() => _routeHistory = history);
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _historyLoading = false);
+    }
+  }
+
+  Future<void> _loadGoogleNearby(String placeType) async {
+    if (_placesLoading) return;
+    if (_userPos == null) {
+      try {
+        await _loadUserLocation();
+      } catch (_) {}
+    }
+    if (_userPos == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.userLocationNotFound)),
+      );
+      return;
+    }
+
+    setState(() {
+      _placesLoading = true;
+      _selectedNearbyType = placeType;
+      _searchQuery = '';
+    });
+    _searchCtrl.clear();
+    try {
+      final places = await _poiService.fetchGoogleNearbyPlaces(
+        lat: _userPos!.latitude,
+        lng: _userPos!.longitude,
+        placeType: placeType,
+        radiusM: 2500,
+        language: Localizations.localeOf(context).languageCode,
+      );
+      if (!mounted) return;
+      setState(() => _googlePlaces = places);
+      _applyMapFilters();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    } finally {
+      if (mounted) setState(() => _placesLoading = false);
+    }
+  }
+
+  Future<void> _searchGooglePlaces() async {
+    final query = _searchQuery.trim();
+    if (query.isEmpty || _placesLoading) return;
+    if (_userPos == null) {
+      try {
+        await _loadUserLocation();
+      } catch (_) {}
+    }
+
+    setState(() {
+      _placesLoading = true;
+      _selectedNearbyType = null;
+    });
+    try {
+      final places = await _poiService.searchGooglePlaces(
+        query: query,
+        lat: _userPos?.latitude,
+        lng: _userPos?.longitude,
+        radiusM: 5000,
+        language: Localizations.localeOf(context).languageCode,
+      );
+      if (!mounted) return;
+      setState(() => _googlePlaces = places);
+      _applyMapFilters();
+      if (places.isNotEmpty) {
+        _focusPoiOnMap(places.first);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    } finally {
+      if (mounted) setState(() => _placesLoading = false);
+    }
+  }
+
+  Future<void> _selectPoi(Poi poi) async {
+    setState(() => _selectedPoi = poi);
+    final placeId = poi.googlePlaceId;
+    if (placeId == null || placeId.isEmpty) return;
+
+    try {
+      final detailed = await _poiService.fetchGooglePlaceDetails(
+        placeId: placeId,
+        language: Localizations.localeOf(context).languageCode,
+      );
+      if (!mounted) return;
+      setState(() => _selectedPoi = detailed);
+    } catch (_) {}
+  }
+
   void _drawPoiMarkers(List<Poi> list) {
     final markers = <Marker>{};
 
@@ -149,10 +370,11 @@ class _MapScreenState extends State<MapScreen> {
         Marker(
           markerId: markerId,
           position: LatLng(p.latitude, p.longitude),
-          infoWindow: InfoWindow(title: p.name),
-          onTap: () {
-            setState(() => _selectedPoi = p);
-          },
+          infoWindow: InfoWindow(
+            title: p.name,
+            snippet: p.rating == null ? null : '★ ${p.rating}',
+          ),
+          onTap: () => _selectPoi(p),
         ),
       );
     }
@@ -416,6 +638,7 @@ class _MapScreenState extends State<MapScreen> {
         toLat: destination.poi.latitude,
         toLng: destination.poi.longitude,
         profile: destination.mode!,
+        destinationName: destination.poi.name,
       );
 
       final resp = await _routeService.buildRoute(req);
@@ -431,6 +654,7 @@ class _MapScreenState extends State<MapScreen> {
         _selectedPoi = destination.poi;
       });
       _drawRoute(resp);
+      _loadRouteHistory();
     } catch (e) {
       var msg = e.toString();
       if (e is DioException) {
@@ -551,10 +775,122 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  void _focusPoiOnMap(Poi poi) {
+    final markerId = MarkerId('poi_${poi.id}');
+    final refreshed = _markers.where((m) => m.markerId != markerId).toSet();
+    refreshed.add(
+      Marker(
+        markerId: markerId,
+        position: LatLng(poi.latitude, poi.longitude),
+        infoWindow: InfoWindow(title: poi.name),
+        onTap: () => _selectPoi(poi),
+      ),
+    );
+    setState(() {
+      _selectedPoi = poi;
+      _markers = refreshed;
+    });
+    _map?.animateCamera(
+      CameraUpdate.newLatLngZoom(LatLng(poi.latitude, poi.longitude), 15),
+    );
+  }
+
+  Future<void> _openHistorySheet() async {
+    await _loadRouteHistory();
+    if (!mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _historyTitle(),
+                  style: const TextStyle(
+                    color: _base,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (_historyLoading)
+                  const Center(child: CircularProgressIndicator())
+                else if (_routeHistory.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    child: Center(child: Text(_emptyHistoryText())),
+                  )
+                else
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 420),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: _routeHistory.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (_, index) {
+                        final item = _routeHistory[index];
+                        final distance =
+                            '${(item.distanceM / 1000).toStringAsFixed(1)} ${context.l10n.kmUnit}';
+                        final minutes =
+                            '${(item.durationS / 60).toStringAsFixed(0)} ${context.l10n.minUnit}';
+                        return ListTile(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: _base.withOpacity(0.12)),
+                          ),
+                          leading: const Icon(Icons.history, color: _base),
+                          title: Text(
+                            item.destinationName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            '${_modeText(item.profile)} · $distance · $minutes',
+                          ),
+                          onTap: () {
+                            Navigator.pop(context);
+                            final poi = Poi(
+                              id: -item.id,
+                              name: item.destinationName,
+                              description: distance,
+                              latitude: item.toLat,
+                              longitude: item.toLng,
+                              category: 'custom',
+                            );
+                            _focusPoiOnMap(poi);
+                          },
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final poiState = context.watch<PoiState>();
     final routeState = context.watch<RouteState>();
+    final categories = _availableCategories(poiState.poi);
+    final filteredPoi = [..._filteredPoi(poiState.poi), ..._filteredGooglePlaces()];
+    final filteredCount = filteredPoi.length;
+    const nearbyTypes = [
+      'tourist_attraction',
+      'cafe',
+      'lodging',
+      'museum',
+      'park',
+    ];
     final isFavorite =
         _selectedPoi != null &&
         _selectedPoi!.id > 0 &&
@@ -590,8 +926,143 @@ class _MapScreenState extends State<MapScreen> {
                         icon: const Icon(Icons.add),
                         label: Text(context.l10n.add),
                       ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        tooltip: _historyTitle(),
+                        onPressed: _openHistorySheet,
+                        icon: const Icon(Icons.history, color: _base),
+                      ),
                     ],
                   ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _searchCtrl,
+                    textInputAction: TextInputAction.search,
+                    decoration: InputDecoration(
+                      hintText: _searchHint(),
+                      prefixIcon: IconButton(
+                        onPressed: _searchGooglePlaces,
+                        icon: const Icon(Icons.search),
+                      ),
+                      suffixIcon: _searchQuery.isEmpty
+                          ? null
+                          : IconButton(
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                setState(() => _searchQuery = '');
+                                _applyMapFilters();
+                              },
+                              icon: const Icon(Icons.close),
+                            ),
+                      isDense: true,
+                    ),
+                    onChanged: (value) {
+                      setState(() => _searchQuery = value);
+                      _applyMapFilters();
+                    },
+                    onSubmitted: (_) => _searchGooglePlaces(),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 36,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: categories.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (_, index) {
+                        final category = categories[index];
+                        return ChoiceChip(
+                          selected: _selectedCategory == category,
+                          label: Text(_categoryText(category)),
+                          onSelected: (_) {
+                            setState(() => _selectedCategory = category);
+                            _applyMapFilters();
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Text(
+                        _nearbyTitle(),
+                        style: TextStyle(
+                          color: _base.withOpacity(0.72),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      if (_placesLoading) ...[
+                        const SizedBox(width: 8),
+                        const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  SizedBox(
+                    height: 38,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: nearbyTypes.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (_, index) {
+                        final type = nearbyTypes[index];
+                        return ActionChip(
+                          avatar: Icon(
+                            _selectedNearbyType == type
+                                ? Icons.check
+                                : Icons.travel_explore,
+                            size: 18,
+                          ),
+                          label: Text(_nearbyTypeText(type)),
+                          onPressed: _placesLoading
+                              ? null
+                              : () => _loadGoogleNearby(type),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _isRu
+                          ? 'Найдено мест: $filteredCount'
+                          : 'Places found: $filteredCount',
+                      style: TextStyle(
+                        color: _base.withOpacity(0.64),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (_searchQuery.trim().isNotEmpty && filteredPoi.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 42,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: filteredPoi.take(6).length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (_, index) {
+                          final poi = filteredPoi[index];
+                          return ActionChip(
+                            avatar: const Icon(Icons.place_outlined, size: 18),
+                            label: Text(
+                              poi.name,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            onPressed: () => _focusPoiOnMap(poi),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   if (_destinations.isEmpty)
                     Container(
@@ -766,38 +1237,111 @@ class _MapScreenState extends State<MapScreen> {
                         Row(
                           children: [
                             Expanded(
-                              child: Text(
-                                _selectedPoi == null
-                                    ? context.l10n.tapMarkerOrAdd
-                                    : _selectedPoi!.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(color: _base, fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _accent,
-                                foregroundColor: _base,
-                              ),
-                              onPressed: _selectedPoi == null
-                                  ? null
-                                  : () => _showDestinationSheet(),
-                              child: Text(context.l10n.addDestination),
-                            ),
-                            IconButton(
-                              onPressed:
-                                  _selectedPoi == null || _selectedPoi!.id <= 0
-                                  ? null
-                                  : _toggleFavorite,
-                              icon: Icon(
-                                isFavorite ? Icons.favorite : Icons.favorite_border_outlined,
-                                color: isFavorite ? _accent : _base,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _selectedPoi == null
+                                        ? context.l10n.tapMarkerOrAdd
+                                        : _selectedPoi!.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: _base,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  if (_selectedPoi != null) ...[
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      _selectedPoi!.address ??
+                                          _selectedPoi!.description,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: _base.withOpacity(0.68),
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Wrap(
+                                      spacing: 10,
+                                      runSpacing: 4,
+                                      children: [
+                                        Text(
+                                          _distanceToSelectedLabel(_selectedPoi!),
+                                          style: TextStyle(
+                                            color: _base.withOpacity(0.78),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        if (_selectedPoi!.rating != null)
+                                          Text(
+                                            '★ ${_selectedPoi!.rating!.toStringAsFixed(1)}',
+                                            style: const TextStyle(
+                                              color: _accent,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    if (_selectedPoi!.category != null)
+                                      Text(
+                                        _categoryText(_selectedPoi!.category!),
+                                        style: TextStyle(
+                                          color: _base.withOpacity(0.58),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                  ],
+                                ],
                               ),
                             ),
                           ],
                         ),
+                        if (_selectedPoi != null) ...[
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () => _focusPoiOnMap(_selectedPoi!),
+                                  icon: const Icon(
+                                    Icons.my_location_outlined,
+                                    size: 18,
+                                  ),
+                                  label: Text(context.l10n.openOnMap),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: FilledButton.icon(
+                                  onPressed: () => _showDestinationSheet(),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: _accent,
+                                    foregroundColor: _base,
+                                  ),
+                                  icon: const Icon(Icons.route, size: 18),
+                                  label: Text(context.l10n.directions),
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: _selectedPoi!.id <= 0
+                                    ? null
+                                    : _toggleFavorite,
+                                icon: Icon(
+                                  isFavorite
+                                      ? Icons.favorite
+                                      : Icons.favorite_border_outlined,
+                                  color: isFavorite ? _accent : _base,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                         if (routeState.error != null) ...[
                           const SizedBox(height: 8),
                           Text(
