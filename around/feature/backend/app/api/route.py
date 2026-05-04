@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.models.route import RouteRequest, RouteResponse
 from app.services.mapbox_directions import build_route, MapboxDirectionsError
 from app.services.gamification_repo import register_route_built
+from app.services.route_history_repo import save_route_history
 from app.deps.auth import require_auth
 
 router = APIRouter(
@@ -15,6 +16,7 @@ router = APIRouter(
 async def route_build(req: RouteRequest, user_id: int = Depends(require_auth)):
     try:
         route = await build_route(req)
+        await save_route_history(user_id, req, route)
         await register_route_built(user_id)
         return route
     except MapboxDirectionsError as e:

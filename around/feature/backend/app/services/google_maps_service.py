@@ -223,6 +223,99 @@ async def places_search(
     return results
 
 
+async def places_nearby_new(
+    lat: float,
+    lng: float,
+    place_type: str,
+    radius_m: int = 1500,
+    language: str = "ru",
+) -> list[dict]:
+    key = _require_api_key()
+
+    url = "https://places.googleapis.com/v1/places:searchNearby"
+    headers = {
+        "X-Goog-Api-Key": key,
+        "X-Goog-FieldMask": (
+            "places.id,places.displayName,places.formattedAddress,"
+            "places.location,places.rating,places.types"
+        ),
+    }
+    payload = {
+        "includedTypes": [place_type],
+        "maxResultCount": 12,
+        "languageCode": language,
+        "locationRestriction": {
+            "circle": {
+                "center": {"latitude": lat, "longitude": lng},
+                "radius": radius_m,
+            }
+        },
+    }
+
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        res = await client.post(url, headers=headers, json=payload)
+        if res.status_code != 200:
+            raise GoogleMapsError(f"Places Nearby New HTTP error {res.status_code}: {res.text}")
+        data = res.json()
+
+    results = []
+    for item in data.get("places", []):
+        loc = item.get("location") or {}
+        display_name = item.get("displayName") or {}
+        types = item.get("types") or []
+        results.append(
+            {
+                "name": display_name.get("text") or "Unnamed place",
+                "address": item.get("formattedAddress"),
+                "place_id": item.get("id"),
+                "lat": float(loc.get("latitude", 0.0)),
+                "lng": float(loc.get("longitude", 0.0)),
+                "rating": item.get("rating"),
+                "category": types[0] if types else place_type,
+            }
+        )
+    return results
+
+
+async def place_details_new(place_id: str, language: str = "ru") -> dict:
+    key = _require_api_key()
+    if not place_id.strip():
+        raise GoogleMapsError("place_id is required")
+
+    url = f"https://places.googleapis.com/v1/places/{place_id}"
+    headers = {
+        "X-Goog-Api-Key": key,
+        "X-Goog-FieldMask": (
+            "id,displayName,formattedAddress,location,rating,"
+            "userRatingCount,types,regularOpeningHours,websiteUri,"
+            "nationalPhoneNumber"
+        ),
+    }
+    params = {"languageCode": language}
+
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        res = await client.get(url, headers=headers, params=params)
+        if res.status_code != 200:
+            raise GoogleMapsError(f"Place Details New HTTP error {res.status_code}: {res.text}")
+        item = res.json()
+
+    loc = item.get("location") or {}
+    display_name = item.get("displayName") or {}
+    return {
+        "name": display_name.get("text") or "Unnamed place",
+        "address": item.get("formattedAddress"),
+        "place_id": item.get("id"),
+        "lat": float(loc.get("latitude", 0.0)),
+        "lng": float(loc.get("longitude", 0.0)),
+        "rating": item.get("rating"),
+        "user_rating_count": item.get("userRatingCount"),
+        "types": item.get("types") or [],
+        "opening_hours": item.get("regularOpeningHours"),
+        "website": item.get("websiteUri"),
+        "phone": item.get("nationalPhoneNumber"),
+    }
+
+
 async def build_directions(req: RouteRequest) -> RouteResponse:
     key = _require_api_key()
     mode = _to_google_mode(req.profile)
