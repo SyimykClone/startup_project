@@ -130,6 +130,30 @@ class AppLocalizationsRu extends AppLocalizations {
   String get favoritesTitle => 'Любимые места';
 
   @override
+  String get tabFavorites => 'Избранное';
+
+  @override
+  String get tabAr => 'AR';
+
+  @override
+  String get tabMap => 'Карта';
+
+  @override
+  String get tabTours => 'Туры';
+
+  @override
+  String get tabProfile => 'Профиль';
+
+  @override
+  String get details => 'Подробнее';
+
+  @override
+  String get openOnMap => 'Открыть на карте';
+
+  @override
+  String get buildRoute => 'Построить маршрут';
+
+  @override
   String get visitedTitle => 'Посещенные места';
 
   @override
@@ -173,6 +197,15 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get tapChoosePhoto => 'Нажмите, чтобы выбрать фото';
+
+  @override
+  String get photoPreviewTitle => 'Предпросмотр фото';
+
+  @override
+  String get usePhoto => 'Использовать фото';
+
+  @override
+  String get chooseAnotherPhoto => 'Выбрать другое';
 
   @override
   String get newPassword => 'Новый пароль';

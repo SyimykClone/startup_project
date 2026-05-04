@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/i18n/l10n.dart';
 import '../../models/poi.dart';
 import '../ar/ar_placeholder_screen.dart';
 import '../favorites/favorites_screen.dart';
@@ -37,6 +38,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
   Widget build(BuildContext context) {
     const accent = Color(0xFFFAA916);
     const base = Color(0xFF151E3F);
+    final l10n = context.l10n;
 
     return Scaffold(
       body: IndexedStack(
@@ -74,9 +76,14 @@ class _AppShellScreenState extends State<AppShellScreen> {
                     color: selected ? base : base.withOpacity(0.6),
                   );
                 }),
-                labelTextStyle: WidgetStateProperty.all(
-                  const TextStyle(fontSize: 0),
-                ),
+                labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                  final selected = states.contains(WidgetState.selected);
+                  return TextStyle(
+                    color: selected ? base : base.withOpacity(0.62),
+                    fontSize: 11,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  );
+                }),
                 indicatorColor: accent.withOpacity(0.33),
                 indicatorShape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -90,61 +97,61 @@ class _AppShellScreenState extends State<AppShellScreen> {
                   if (value == 3) _toursRefreshTick++;
                   if (value == 4) _profileRefreshTick++;
                 }),
-                destinations: const [
+                destinations: [
                   NavigationDestination(
-                    icon: Padding(
+                    icon: const Padding(
                       padding: EdgeInsets.only(top: 4),
                       child: Icon(Icons.favorite_border, size: 22),
                     ),
-                    selectedIcon: Padding(
+                    selectedIcon: const Padding(
                       padding: EdgeInsets.only(top: 4),
                       child: Icon(Icons.favorite, size: 24),
                     ),
-                    label: '',
+                    label: l10n.tabFavorites,
                   ),
                   NavigationDestination(
-                    icon: Padding(
+                    icon: const Padding(
                       padding: EdgeInsets.only(top: 4),
                       child: Icon(Icons.view_in_ar_outlined, size: 22),
                     ),
-                    selectedIcon: Padding(
+                    selectedIcon: const Padding(
                       padding: EdgeInsets.only(top: 4),
                       child: Icon(Icons.view_in_ar, size: 24),
                     ),
-                    label: '',
+                    label: l10n.tabAr,
                   ),
                   NavigationDestination(
-                    icon: Padding(
+                    icon: const Padding(
                       padding: EdgeInsets.only(top: 4),
                       child: Icon(Icons.map_outlined, size: 22),
                     ),
-                    selectedIcon: Padding(
+                    selectedIcon: const Padding(
                       padding: EdgeInsets.only(top: 4),
                       child: Icon(Icons.map_rounded, size: 24),
                     ),
-                    label: '',
+                    label: l10n.tabMap,
                   ),
                   NavigationDestination(
-                    icon: Padding(
+                    icon: const Padding(
                       padding: EdgeInsets.only(top: 4),
                       child: Icon(Icons.explore_outlined, size: 22),
                     ),
-                    selectedIcon: Padding(
+                    selectedIcon: const Padding(
                       padding: EdgeInsets.only(top: 4),
                       child: Icon(Icons.explore, size: 24),
                     ),
-                    label: '',
+                    label: l10n.tabTours,
                   ),
                   NavigationDestination(
-                    icon: Padding(
+                    icon: const Padding(
                       padding: EdgeInsets.only(top: 4),
                       child: Icon(Icons.person_outline, size: 22),
                     ),
-                    selectedIcon: Padding(
+                    selectedIcon: const Padding(
                       padding: EdgeInsets.only(top: 4),
                       child: Icon(Icons.person, size: 24),
                     ),
-                    label: '',
+                    label: l10n.tabProfile,
                   ),
                 ],
               ),

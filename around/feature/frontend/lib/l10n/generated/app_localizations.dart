@@ -332,6 +332,54 @@ abstract class AppLocalizations {
   /// **'Favorite places'**
   String get favoritesTitle;
 
+  /// No description provided for @tabFavorites.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorites'**
+  String get tabFavorites;
+
+  /// No description provided for @tabAr.
+  ///
+  /// In en, this message translates to:
+  /// **'AR'**
+  String get tabAr;
+
+  /// No description provided for @tabMap.
+  ///
+  /// In en, this message translates to:
+  /// **'Map'**
+  String get tabMap;
+
+  /// No description provided for @tabTours.
+  ///
+  /// In en, this message translates to:
+  /// **'Tours'**
+  String get tabTours;
+
+  /// No description provided for @tabProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get tabProfile;
+
+  /// No description provided for @details.
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get details;
+
+  /// No description provided for @openOnMap.
+  ///
+  /// In en, this message translates to:
+  /// **'Open on map'**
+  String get openOnMap;
+
+  /// No description provided for @buildRoute.
+  ///
+  /// In en, this message translates to:
+  /// **'Build route'**
+  String get buildRoute;
+
   /// No description provided for @visitedTitle.
   ///
   /// In en, this message translates to:
@@ -409,6 +457,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Tap to choose photo'**
   String get tapChoosePhoto;
+
+  /// No description provided for @photoPreviewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo preview'**
+  String get photoPreviewTitle;
+
+  /// No description provided for @usePhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Use photo'**
+  String get usePhoto;
+
+  /// No description provided for @chooseAnotherPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose another'**
+  String get chooseAnotherPhoto;
 
   /// No description provided for @newPassword.
   ///

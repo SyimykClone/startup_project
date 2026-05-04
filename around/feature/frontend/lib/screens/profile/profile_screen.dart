@@ -40,16 +40,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ? 'Путешественник'
           : 'Traveler';
 
-  String _detailsLabel() =>
-      Localizations.localeOf(context).languageCode == 'ru'
-          ? 'Подробнее'
-          : 'Details';
-
-  String _openMapLabel() =>
-      Localizations.localeOf(context).languageCode == 'ru'
-          ? 'Открыть на карте'
-          : 'Open on map';
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -371,11 +361,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             itemBuilder: (_) => [
                               PopupMenuItem(
                                 value: 'details',
-                                child: Text(_detailsLabel()),
+                                child: Text(l10n.details),
                               ),
                               PopupMenuItem(
                                 value: 'map',
-                                child: Text(_openMapLabel()),
+                                child: Text(l10n.openOnMap),
                               ),
                             ],
                           ),

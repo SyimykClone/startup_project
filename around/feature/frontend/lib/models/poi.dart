@@ -5,6 +5,9 @@ class Poi {
   final double latitude;
   final double longitude;
   final String? category;
+  final String? googlePlaceId;
+  final double? rating;
+  final String? address;
 
   Poi({
     required this.id,
@@ -13,16 +16,22 @@ class Poi {
     required this.latitude,
     required this.longitude,
     this.category,
+    this.googlePlaceId,
+    this.rating,
+    this.address,
   });
 
   factory Poi.fromJson(Map<String, dynamic> json) {
     return Poi(
-      id: json['id'] as int,
-      name: json['name'] as String,
-      description: json['description'] as String,
-      latitude: (json['latitude'] as num).toDouble(),
-      longitude: (json['longitude'] as num).toDouble(),
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      name: (json['name'] ?? '').toString(),
+      description: (json['description'] ?? json['address'] ?? '').toString(),
+      latitude: ((json['latitude'] ?? json['lat']) as num).toDouble(),
+      longitude: ((json['longitude'] ?? json['lng']) as num).toDouble(),
       category: json['category'] as String?,
+      googlePlaceId: (json['google_place_id'] ?? json['place_id']) as String?,
+      rating: (json['rating'] as num?)?.toDouble(),
+      address: json['address'] as String?,
     );
   }
 }

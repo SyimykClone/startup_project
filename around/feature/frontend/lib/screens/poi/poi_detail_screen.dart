@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/i18n/l10n.dart';
 import '../../models/poi.dart';
 import '../../state/route_state.dart';
 import '../../core/router/app_router.dart';
@@ -13,9 +14,9 @@ class PoiDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final routeState = context.watch<RouteState>();
     final locale = Localizations.localeOf(context).languageCode;
+    final l10n = context.l10n;
     final coordinatesLabel = locale == 'ru' ? 'Координаты' : 'Coordinates';
     final routeErrorLabel = locale == 'ru' ? 'Ошибка маршрута' : 'Route error';
-    final openMapLabel = locale == 'ru' ? 'Открыть на карте' : 'Open on map';
 
     return Scaffold(
       appBar: AppBar(title: Text(poi.name)),
@@ -47,7 +48,7 @@ class PoiDetailScreen extends StatelessWidget {
                       arguments: AppShellArgs(initialIndex: 2, initialPoi: poi),
                     );
                   },
-                  child: Text(openMapLabel),
+                  child: Text(l10n.openOnMap),
                 ),
               ),
             ],
