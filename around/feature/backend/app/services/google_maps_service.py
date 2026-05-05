@@ -237,7 +237,7 @@ async def places_nearby_new(
         "X-Goog-Api-Key": key,
         "X-Goog-FieldMask": (
             "places.id,places.displayName,places.formattedAddress,"
-            "places.location,places.rating,places.types"
+            "places.location,places.rating,places.types,places.photos"
         ),
     }
     payload = {
@@ -263,6 +263,8 @@ async def places_nearby_new(
         loc = item.get("location") or {}
         display_name = item.get("displayName") or {}
         types = item.get("types") or []
+        photos = item.get("photos") or []
+        first_photo = photos[0].get("name") if photos else None
         results.append(
             {
                 "name": display_name.get("text") or "Unnamed place",
@@ -272,6 +274,7 @@ async def places_nearby_new(
                 "lng": float(loc.get("longitude", 0.0)),
                 "rating": item.get("rating"),
                 "category": types[0] if types else place_type,
+                "photo_name": first_photo,
             }
         )
     return results
@@ -288,7 +291,7 @@ async def place_details_new(place_id: str, language: str = "ru") -> dict:
         "X-Goog-FieldMask": (
             "id,displayName,formattedAddress,location,rating,"
             "userRatingCount,types,regularOpeningHours,websiteUri,"
-            "nationalPhoneNumber"
+            "nationalPhoneNumber,photos"
         ),
     }
     params = {"languageCode": language}
@@ -301,6 +304,8 @@ async def place_details_new(place_id: str, language: str = "ru") -> dict:
 
     loc = item.get("location") or {}
     display_name = item.get("displayName") or {}
+    photos = item.get("photos") or []
+    first_photo = photos[0].get("name") if photos else None
     return {
         "name": display_name.get("text") or "Unnamed place",
         "address": item.get("formattedAddress"),
@@ -313,7 +318,26 @@ async def place_details_new(place_id: str, language: str = "ru") -> dict:
         "opening_hours": item.get("regularOpeningHours"),
         "website": item.get("websiteUri"),
         "phone": item.get("nationalPhoneNumber"),
+        "photo_name": first_photo,
     }
+
+
+async def fetch_place_photo_media(photo_name: str, max_width_px: int = 900) -> bytes:
+    key = _require_api_key()
+    if not photo_name.strip():
+        raise GoogleMapsError("photo_name is required")
+
+    url = f"https://places.googleapis.com/v1/{photo_name}/media"
+    params = {
+        "maxWidthPx": max_width_px,
+        "key": key,
+    }
+
+    async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
+        res = await client.get(url, params=params)
+        if res.status_code != 200:
+            raise GoogleMapsError(f"Place photo HTTP error {res.status_code}: {res.text}")
+        return res.content
 
 
 async def build_directions(req: RouteRequest) -> RouteResponse:
