@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from app.deps.auth import require_auth
 from app.models.route import RouteRequest, RouteResponse
 from app.services.gamification_repo import register_route_built
 from app.services.google_maps_service import (
     GoogleMapsError,
     build_directions,
+    fetch_place_photo_media,
     geocode,
     place_details_new,
     places_nearby_new,
@@ -111,6 +112,23 @@ async def google_place_details(
 ):
     try:
         return await place_details_new(place_id=place_id, language=language)
+    except GoogleMapsError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
+
+
+@router.get("/places/photo")
+async def google_place_photo(
+    photo_name: str = Query(..., min_length=1),
+    max_width_px: int = Query(default=900, ge=100, le=1600),
+):
+    try:
+        content = await fetch_place_photo_media(
+            photo_name=photo_name,
+            max_width_px=max_width_px,
+        )
+        return Response(content=content, media_type="image/jpeg")
     except GoogleMapsError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
