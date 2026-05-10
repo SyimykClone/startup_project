@@ -40,6 +40,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ? 'Путешественник'
           : 'Traveler';
 
+  bool get _isRu => Localizations.localeOf(context).languageCode == 'ru';
+
+  String _roleLabel(AuthState auth) {
+    if (auth.isBusiness) return _isRu ? 'Бизнес-профиль' : 'Business profile';
+    return _isRu ? 'Обычный пользователь' : 'Regular user';
+  }
+
+  String _rankTitle(int level) {
+    if (level >= 5) return _isRu ? 'Гид маршрутов' : 'Route guide';
+    if (level >= 3) return _isRu ? 'Исследователь' : 'Explorer';
+    if (level >= 2) return _isRu ? 'Путешественник' : 'Traveler';
+    return _isRu ? 'Новичок' : 'Beginner';
+  }
+
+  String _xpProgressText(GamificationProgress p) {
+    final next = p.nextLevelXp;
+    if (next == null) return _isRu ? 'Максимальный уровень' : 'Max level';
+    return '${p.xp - p.currentLevelXp} / ${next - p.currentLevelXp} XP';
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -105,7 +125,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = context.l10n;
     final auth = context.watch<AuthState>();
     final rawUsername = auth.username?.trim();
     final username =
@@ -116,265 +135,251 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final localeState = context.watch<LocaleState>();
 
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      child: RefreshIndicator(
+        onRefresh: () async {
+          await Future.wait([_loadProgress(), _loadVisited()]);
+        },
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
           children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: base.withOpacity(0.1)),
+            _buildProfileHeader(
+              context,
+              username: username,
+              avatarUrl: avatarUrl,
+              auth: auth,
+              localeState: localeState,
+            ),
+            const SizedBox(height: 14),
+            _buildGamificationCard(context),
+            const SizedBox(height: 14),
+            _buildVisitedPreview(context),
+            const SizedBox(height: 18),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileHeader(
+    BuildContext context, {
+    required String username,
+    required String? avatarUrl,
+    required AuthState auth,
+    required LocaleState localeState,
+  }) {
+    final progress = _progress;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: base,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              InkWell(
+                onTap: () => Navigator.pushNamed(context, Routes.editProfile),
+                borderRadius: BorderRadius.circular(44),
+                child: Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFFFFF8E8),
+                    border: Border.all(color: accent, width: 1.5),
+                  ),
+                  child: avatarUrl != null
+                      ? ClipOval(
+                          child: Image.network(
+                            avatarUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                const Icon(Icons.person_outline, size: 34),
+                          ),
+                        )
+                      : const Icon(Icons.person_outline, size: 34, color: base),
+                ),
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
                       username,
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w800,
-                        color: base,
+                        color: Colors.white,
+                        fontSize: 25,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
-                  ),
-                  PopupMenuButton<String>(
-                    tooltip: l10n.language,
-                    onSelected: (value) {
-                      context.read<LocaleState>().setLocale(Locale(value));
-                    },
-                    itemBuilder: (_) => [
-                      PopupMenuItem(
-                        value: 'ru',
-                        child: Row(
-                          children: [
-                            Icon(
-                              localeState.locale.languageCode == 'ru'
-                                  ? Icons.check
-                                  : Icons.language,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(l10n.russian),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'en',
-                        child: Row(
-                          children: [
-                            Icon(
-                              localeState.locale.languageCode == 'en'
-                                  ? Icons.check
-                                  : Icons.language,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(l10n.english),
-                          ],
-                        ),
-                      ),
-                    ],
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFF3D9),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        localeState.locale.languageCode.toUpperCase(),
-                        style: const TextStyle(
-                          color: base,
-                          fontWeight: FontWeight.w700,
-                        ),
+                    const SizedBox(height: 5),
+                    Text(
+                      progress == null
+                          ? _roleLabel(auth)
+                          : '${_rankTitle(progress.level)} · ${_roleLabel(auth)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.72),
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  InkWell(
-                    onTap: () => Navigator.pushNamed(context, Routes.editProfile),
-                    borderRadius: BorderRadius.circular(44),
-                    child: Container(
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: const Color(0xFFFFF8E8),
-                        border: Border.all(color: accent.withOpacity(0.8), width: 1.4),
-                      ),
-                      child: avatarUrl != null
-                          ? ClipOval(
-                              child: Image.network(
-                                avatarUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) =>
-                                    const Icon(Icons.person_outline, size: 34),
-                              ),
-                            )
-                          : const Icon(Icons.person_outline, size: 34, color: base),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            _buildGamificationCard(context),
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    l10n.visitedTitle,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      color: base,
-                    ),
-                  ),
+                  ],
                 ),
-                IconButton(
-                  onPressed: _loadingVisited ? null : _loadVisited,
-                  icon: const Icon(Icons.refresh, color: base),
+              ),
+              PopupMenuButton<String>(
+                tooltip: context.l10n.language,
+                onSelected: (value) {
+                  context.read<LocaleState>().setLocale(Locale(value));
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(value: 'ru', child: Text(context.l10n.russian)),
+                  PopupMenuItem(value: 'en', child: Text(context.l10n.english)),
+                ],
+                child: _ProfilePill(
+                  label: localeState.locale.languageCode.toUpperCase(),
+                  icon: Icons.language,
+                  dark: true,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              _ProfilePill(
+                label: progress == null
+                    ? 'XP 0'
+                    : '${_isRu ? 'Уровень' : 'Level'} ${progress.level}',
+                icon: Icons.auto_awesome,
+                dark: true,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _ProfilePill(
+                  label: progress == null
+                      ? (_isRu ? 'Активность пока пустая' : 'No activity yet')
+                      : _xpProgressText(progress),
+                  icon: Icons.bolt,
+                  dark: true,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVisitedPreview(BuildContext context) {
+    final visibleItems = _visited.take(3).toList();
+
+    return _ProfileSection(
+      title: context.l10n.visitedTitle,
+      trailing: IconButton(
+        onPressed: _loadingVisited ? null : _loadVisited,
+        icon: const Icon(Icons.refresh, color: base),
+      ),
+      child: Builder(
+        builder: (context) {
+          if (_loadingVisited) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          if (_visitedError != null) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                context.l10n.loadError(_visitedError!),
+                textAlign: TextAlign.center,
+              ),
+            );
+          }
+
+          if (_visited.isEmpty) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                context.l10n.visitedEmpty,
+                style: const TextStyle(
+                  color: base,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            );
+          }
+
+          return Column(
+            children: [
+              ...visibleItems.map(_buildVisitedItem),
+              if (_visited.length > visibleItems.length) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _isRu
+                      ? 'Показаны последние ${visibleItems.length} из ${_visited.length}'
+                      : 'Showing latest ${visibleItems.length} of ${_visited.length}',
+                  style: TextStyle(
+                    color: base.withOpacity(0.58),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
-            ),
-            const SizedBox(height: 10),
-            if (_loadingVisited)
-              const Expanded(child: Center(child: CircularProgressIndicator()))
-            else if (_visitedError != null)
-              Expanded(
-                child: Center(
-                  child: Text(
-                    l10n.loadError(_visitedError!),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              )
-            else if (_visited.isEmpty)
-              Expanded(
-                child: Center(
-                  child: Text(
-                    l10n.visitedEmpty,
-                    style: const TextStyle(color: base, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              )
-            else
-              Expanded(
-                child: ListView.separated(
-                  itemCount: _visited.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (_, i) {
-                    final poi = _visited[i];
-                    return Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: base.withOpacity(0.18)),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEFF3FF),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(Icons.place_outlined, color: base),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  poi.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    color: base,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  poi.description,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: base.withOpacity(0.65),
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          PopupMenuButton<String>(
-                            onSelected: (value) {
-                              if (value == 'details') {
-                                Navigator.pushNamed(
-                                  context,
-                                  Routes.poiDetail,
-                                  arguments: poi,
-                                );
-                              }
-                              if (value == 'map') {
-                                Navigator.pushNamed(
-                                  context,
-                                  Routes.map,
-                                  arguments: AppShellArgs(
-                                    initialIndex: 2,
-                                    initialPoi: poi,
-                                  ),
-                                );
-                              }
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFF3D9),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                l10n.visitedBadge,
-                                style: const TextStyle(
-                                  color: base,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                            itemBuilder: (_) => [
-                              PopupMenuItem(
-                                value: 'details',
-                                child: Text(l10n.details),
-                              ),
-                              PopupMenuItem(
-                                value: 'map',
-                                child: Text(l10n.openOnMap),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildVisitedItem(Poi poi) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: base.withOpacity(0.1)),
+        ),
+        leading: const Icon(Icons.place_outlined, color: base),
+        title: Text(
+          poi.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: base, fontWeight: FontWeight.w800),
+        ),
+        subtitle: Text(
+          poi.description,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: PopupMenuButton<String>(
+          onSelected: (value) {
+            if (value == 'details') {
+              Navigator.pushNamed(context, Routes.poiDetail, arguments: poi);
+            }
+            if (value == 'map') {
+              Navigator.pushNamed(
+                context,
+                Routes.map,
+                arguments: AppShellArgs(initialIndex: 2, initialPoi: poi),
+              );
+            }
+          },
+          itemBuilder: (_) => [
+            PopupMenuItem(value: 'details', child: Text(context.l10n.details)),
+            PopupMenuItem(value: 'map', child: Text(context.l10n.openOnMap)),
           ],
         ),
       ),
@@ -382,74 +387,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildGamificationCard(BuildContext context) {
-    const border = Color(0x1A151E3F);
     if (_loadingProgress) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: border),
+      return _ProfileSection(
+        title: context.l10n.gamificationTitle,
+        child: const Padding(
+          padding: EdgeInsets.symmetric(vertical: 20),
+          child: Center(child: CircularProgressIndicator()),
         ),
-        child: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_progressError != null || _progress == null) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              context.l10n.gamificationTitle,
-              style: const TextStyle(
-                color: base,
-                fontWeight: FontWeight.w800,
-                fontSize: 17,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(context.l10n.loadError(_progressError ?? 'empty response')),
-          ],
+      return _ProfileSection(
+        title: context.l10n.gamificationTitle,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Text(context.l10n.loadError(_progressError ?? 'empty response')),
         ),
       );
     }
 
     final p = _progress!;
     final progress = (p.xpProgressPercent / 100).clamp(0.0, 1.0);
-    final nextLevel = p.nextLevelXp?.toString() ?? context.l10n.maxLevel;
+    final unlocked = p.achievements.where((a) => a.unlocked).length;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: border),
-      ),
+    return _ProfileSection(
+      title: context.l10n.gamificationTitle,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            context.l10n.gamificationTitle,
-            style: const TextStyle(
-              color: base,
-              fontWeight: FontWeight.w800,
-              fontSize: 17,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            context.l10n.levelLine(p.level, p.xp),
-            style: const TextStyle(color: base, fontWeight: FontWeight.w700),
+          Row(
+            children: [
+              Text(
+                _rankTitle(p.level),
+                style: const TextStyle(
+                  color: base,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${p.xp} XP',
+                style: const TextStyle(
+                  color: accent,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           ClipRRect(
@@ -463,49 +448,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            context.l10n.xpToNextLevel(nextLevel),
+            _xpProgressText(p),
             style: TextStyle(color: base.withOpacity(0.75), fontSize: 12),
           ),
-          const SizedBox(height: 10),
-          Text(
-            context.l10n.routesBuiltLabel(p.routesBuilt),
-            style: const TextStyle(color: base, fontWeight: FontWeight.w600),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _StatCard(
+                  label: _isRu ? 'Маршруты' : 'Routes',
+                  value: p.routesBuilt.toString(),
+                  icon: Icons.route_outlined,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _StatCard(
+                  label: _isRu ? 'Места' : 'Places',
+                  value: p.newPlacesVisited.toString(),
+                  icon: Icons.place_outlined,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _StatCard(
+                  label: _isRu ? 'Бейджи' : 'Badges',
+                  value: '$unlocked/${p.achievements.length}',
+                  icon: Icons.emoji_events_outlined,
+                ),
+              ),
+            ],
           ),
-          Text(
-            context.l10n.newPlacesLabel(p.newPlacesVisited),
-            style: const TextStyle(color: base, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           Text(
             context.l10n.achievementsTitle,
-            style: const TextStyle(color: base, fontWeight: FontWeight.w700),
+            style: const TextStyle(color: base, fontWeight: FontWeight.w800),
           ),
-          const SizedBox(height: 6),
-          ...p.achievements.map(
-            (a) => Padding(
-              padding: const EdgeInsets.only(bottom: 5),
-              child: Row(
-                children: [
-                  Icon(
-                    a.unlocked ? Icons.emoji_events : Icons.lock_outline,
-                    size: 16,
-                    color: a.unlocked ? accent : base.withOpacity(0.45),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _achievementTitle(context, a.code, a.title),
-                      style: TextStyle(
-                        color: a.unlocked ? base : base.withOpacity(0.7),
-                        fontWeight: a.unlocked
-                            ? FontWeight.w700
-                            : FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: p.achievements.map(
+              (a) => _AchievementChip(
+                title: _achievementTitle(context, a.code, a.title),
+                unlocked: a.unlocked,
               ),
-            ),
+            ).toList(),
           ),
         ],
       ),
@@ -523,5 +511,197 @@ class _ProfileScreenState extends State<ProfileScreen> {
       default:
         return fallback;
     }
+  }
+}
+
+class _ProfileSection extends StatelessWidget {
+  const _ProfileSection({
+    required this.title,
+    required this.child,
+    this.trailing,
+  });
+
+  final String title;
+  final Widget child;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _ProfileScreenState.base.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: _ProfileScreenState.base,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              if (trailing != null) trailing!,
+            ],
+          ),
+          const SizedBox(height: 10),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfilePill extends StatelessWidget {
+  const _ProfilePill({
+    required this.label,
+    required this.icon,
+    this.dark = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool dark;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = dark ? Colors.white : _ProfileScreenState.base;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: dark
+            ? Colors.white.withOpacity(0.1)
+            : const Color(0xFFFFF3D9),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: foreground, size: 15),
+          const SizedBox(width: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 190),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: foreground,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  const _StatCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF6F7FB),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: _ProfileScreenState.base, size: 18),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              color: _ProfileScreenState.base,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: _ProfileScreenState.base.withOpacity(0.62),
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AchievementChip extends StatelessWidget {
+  const _AchievementChip({
+    required this.title,
+    required this.unlocked,
+  });
+
+  final String title;
+  final bool unlocked;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: unlocked
+            ? const Color(0xFFFFF3D9)
+            : const Color(0xFFF2F3F8),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            unlocked ? Icons.emoji_events : Icons.lock_outline,
+            color: unlocked
+                ? _ProfileScreenState.accent
+                : _ProfileScreenState.base.withOpacity(0.5),
+            size: 15,
+          ),
+          const SizedBox(width: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 180),
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: unlocked
+                    ? _ProfileScreenState.base
+                    : _ProfileScreenState.base.withOpacity(0.62),
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

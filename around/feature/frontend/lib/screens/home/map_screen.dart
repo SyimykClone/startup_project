@@ -1,4 +1,6 @@
 ﻿import 'package:around/state/auth_state.dart';
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -15,6 +17,11 @@ import '../../services/poi_service.dart';
 import '../../services/route_service.dart';
 import '../../state/poi_state.dart';
 import '../../state/route_state.dart';
+
+part 'map_search_bar.dart';
+part 'nearby_filters_sheet.dart';
+part 'route_info_sheet.dart';
+part 'selected_place_card.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key, this.initialPoi});
@@ -49,7 +56,6 @@ class _MapScreenState extends State<MapScreen> {
   LatLng? _userPos;
   Poi? _selectedPoi;
   String _searchQuery = '';
-  String _selectedCategory = 'all';
 
   final Set<int> _favoritePoiIds = <int>{};
   final List<_DestinationItem> _destinations = [];
@@ -58,6 +64,7 @@ class _MapScreenState extends State<MapScreen> {
 
   Set<Marker> _markers = <Marker>{};
   Set<Polyline> _polylines = <Polyline>{};
+  Timer? _routeAnimationTimer;
   List<RouteHistoryItem> _routeHistory = [];
   bool _historyLoading = false;
   List<Poi> _googlePlaces = [];
@@ -92,6 +99,8 @@ class _MapScreenState extends State<MapScreen> {
         return _isRu ? 'Мои точки' : 'My points';
       case 'google_place':
         return _isRu ? 'Google Places' : 'Google Places';
+      case 'twogis_place':
+        return '2GIS';
       default:
         return category;
     }
@@ -105,6 +114,14 @@ class _MapScreenState extends State<MapScreen> {
       _isRu ? 'История маршрутов пока пустая' : 'No route history yet';
 
   String _nearbyTitle() => _isRu ? 'Рядом' : 'Nearby';
+
+  String _routeReadyTitle() => _isRu ? 'Маршрут готов' : 'Route ready';
+
+  String _routeDistanceTitle() => _isRu ? 'Расстояние' : 'Distance';
+
+  String _routeTimeTitle() => _isRu ? 'Время' : 'Time';
+
+  String _routeModeTitle() => _isRu ? 'Тип' : 'Mode';
 
   String _nearbyTypeText(String type) {
     switch (type) {
@@ -138,16 +155,111 @@ class _MapScreenState extends State<MapScreen> {
     return '${meters.toStringAsFixed(0)} ${_isRu ? 'м' : 'm'}';
   }
 
+  String _formatDistance(double meters) {
+    if (meters >= 1000) {
+      return '${(meters / 1000).toStringAsFixed(1)} ${context.l10n.kmUnit}';
+    }
+    return '${meters.toStringAsFixed(0)} ${_isRu ? 'м' : 'm'}';
+  }
+
+  String _formatDuration(double seconds) {
+    if (seconds >= 3600) {
+      final hours = seconds ~/ 3600;
+      final minutes = ((seconds % 3600) / 60).round();
+      return _isRu ? '$hours ч $minutes мин' : '${hours}h ${minutes}m';
+    }
+    return '${(seconds / 60).round()} ${context.l10n.minUnit}';
+  }
+
+  String _locationErrorMessage(Object error) {
+    if (error is LocationFailure) {
+      switch (error.reason) {
+        case LocationFailureReason.serviceDisabled:
+          return _isRu
+              ? 'GPS выключен. Включите геолокацию, чтобы построить маршрут.'
+              : 'Location is turned off. Enable it to build a route.';
+        case LocationFailureReason.permissionDenied:
+          return _isRu
+              ? 'Разрешите доступ к геолокации для определения вашей позиции.'
+              : 'Allow location access to detect your position.';
+        case LocationFailureReason.permissionDeniedForever:
+          return _isRu
+              ? 'Доступ к геолокации запрещён в настройках приложения.'
+              : 'Location access is blocked in app settings.';
+        case LocationFailureReason.positionUnavailable:
+          return _isRu
+              ? 'Позиция пока не определилась. Проверьте GPS и попробуйте ещё раз.'
+              : 'Position is not available yet. Check GPS and try again.';
+      }
+    }
+    return context.l10n.userLocationNotFound;
+  }
+
+  String _locationActionLabel(Object error) {
+    if (error is LocationFailure &&
+        error.reason == LocationFailureReason.permissionDeniedForever) {
+      return _isRu ? 'Настройки' : 'Settings';
+    }
+    return _isRu ? 'Включить' : 'Enable';
+  }
+
+  Future<void> _openLocationSettingsFor(Object error) async {
+    if (error is LocationFailure &&
+        error.reason == LocationFailureReason.permissionDeniedForever) {
+      await Geolocator.openAppSettings();
+      return;
+    }
+    await Geolocator.openLocationSettings();
+  }
+
+  void _showLocationProblem(Object error) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_locationErrorMessage(error)),
+        action: SnackBarAction(
+          label: _locationActionLabel(error),
+          onPressed: () => _openLocationSettingsFor(error),
+        ),
+      ),
+    );
+  }
+
+  String _requestErrorMessage(Object error) {
+    if (error is DioException) {
+      final statusCode = error.response?.statusCode;
+      final data = error.response?.data;
+      if (data is Map && data['detail'] != null) {
+        return data['detail'].toString();
+      }
+      if (statusCode == 404) {
+        return _isRu
+            ? 'Сервер ещё не поддерживает этот запрос. Обновите backend-деплой и попробуйте снова.'
+            : 'The server does not support this request yet. Update backend deployment and try again.';
+      }
+      if (statusCode != null) {
+        return context.l10n.requestFailed(statusCode);
+      }
+      if (error.type == DioExceptionType.connectionError) {
+        return _isRu
+            ? 'Не удалось подключиться к серверу. Проверьте интернет и API URL.'
+            : 'Could not connect to the server. Check internet and API URL.';
+      }
+      if (error.message != null && error.message!.isNotEmpty) {
+        return error.message!;
+      }
+    }
+    return error.toString();
+  }
+
   List<Poi> _filteredPoi(List<Poi> list) {
     final query = _searchQuery.trim().toLowerCase();
     return list.where((poi) {
-      final categoryOk =
-          _selectedCategory == 'all' || poi.category == _selectedCategory;
       final queryOk =
           query.isEmpty ||
           poi.name.toLowerCase().contains(query) ||
           poi.description.toLowerCase().contains(query);
-      return categoryOk && queryOk;
+      return queryOk;
     }).toList();
   }
 
@@ -161,17 +273,6 @@ class _MapScreenState extends State<MapScreen> {
     }).toList();
   }
 
-  List<String> _availableCategories(List<Poi> list) {
-    final categories = list
-        .map((p) => p.category)
-        .whereType<String>()
-        .where((c) => c.trim().isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
-    return ['all', ...categories];
-  }
-
   void _applyMapFilters() {
     final poi = context.read<PoiState>().poi;
     _drawPoiMarkers([..._filteredPoi(poi), ..._filteredGooglePlaces()]);
@@ -179,6 +280,7 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   void dispose() {
+    _routeAnimationTimer?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -206,12 +308,8 @@ class _MapScreenState extends State<MapScreen> {
     _map = controller;
     try {
       await _loadUserLocation();
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.userLocationNotFound)),
-        );
-      }
+    } catch (e) {
+      _showLocationProblem(e);
     }
     await _loadPoiAndDrawMarkers();
     await _loadFavorites();
@@ -272,13 +370,11 @@ class _MapScreenState extends State<MapScreen> {
     if (_userPos == null) {
       try {
         await _loadUserLocation();
-      } catch (_) {}
+      } catch (e) {
+        _showLocationProblem(e);
+      }
     }
     if (_userPos == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.userLocationNotFound)),
-      );
       return;
     }
 
@@ -302,7 +398,7 @@ class _MapScreenState extends State<MapScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(content: Text(_requestErrorMessage(e))),
       );
     } finally {
       if (mounted) setState(() => _placesLoading = false);
@@ -339,7 +435,7 @@ class _MapScreenState extends State<MapScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(content: Text(_requestErrorMessage(e))),
       );
     } finally {
       if (mounted) setState(() => _placesLoading = false);
@@ -414,31 +510,73 @@ class _MapScreenState extends State<MapScreen> {
       _selectedPoi = fallbackPoi;
     });
 
-    Poi customPoi = fallbackPoi;
+    Poi selectedPoi = fallbackPoi;
     try {
-      customPoi = await _poiService.createCustomPoiFromCoordinates(
+      final locale = Localizations.localeOf(context).languageCode;
+      final twoGisCandidates = await _poiService.resolveTapWith2Gis(
         lat: position.latitude,
         lng: position.longitude,
+        radiusM: 80,
+        locale: locale == 'ru' ? 'ru_RU' : 'en_US',
       );
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.couldNotResolveAddress),
-          ),
+      selectedPoi = twoGisCandidates.isNotEmpty
+          ? twoGisCandidates.first
+          : await _poiService.findGooglePlaceNearCoordinates(
+                lat: position.latitude,
+                lng: position.longitude,
+                radiusM: 100,
+                language: locale,
+              ) ??
+              await _poiService.createCustomPoiFromCoordinates(
+                lat: position.latitude,
+                lng: position.longitude,
+                language: locale,
+              );
+      final placeId = selectedPoi.googlePlaceId;
+      if (placeId != null && placeId.isNotEmpty) {
+        selectedPoi = await _poiService.fetchGooglePlaceDetails(
+          placeId: placeId,
+          language: locale,
         );
+      }
+    } catch (e) {
+      try {
+        selectedPoi = await _poiService.createCustomPoiFromCoordinates(
+          lat: position.latitude,
+          lng: position.longitude,
+          language: Localizations.localeOf(context).languageCode,
+        );
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(l10n.couldNotResolveAddress),
+            ),
+          );
+        }
       }
     }
 
     if (!mounted) return;
 
+    final markerPosition = selectedPoi.category == 'google_place' ||
+            selectedPoi.category == 'twogis_place'
+        ? LatLng(selectedPoi.latitude, selectedPoi.longitude)
+        : position;
+    final markerIconHue = selectedPoi.category == 'google_place' ||
+            selectedPoi.category == 'twogis_place'
+        ? BitmapDescriptor.hueRed
+        : BitmapDescriptor.hueAzure;
     final refreshedMarkers = _markers.where((m) => m.markerId != tapMarkerId).toSet();
     refreshedMarkers.add(
       Marker(
         markerId: tapMarkerId,
-        position: position,
-        infoWindow: InfoWindow(title: customPoi.name, snippet: customPoi.description),
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+        position: markerPosition,
+        infoWindow: InfoWindow(
+          title: selectedPoi.name,
+          snippet: selectedPoi.address ?? selectedPoi.description,
+        ),
+        icon: BitmapDescriptor.defaultMarkerWithHue(markerIconHue),
       ),
     );
 
@@ -449,14 +587,14 @@ class _MapScreenState extends State<MapScreen> {
 
     setState(() {
       _markers = refreshedMarkers;
-      _selectedPoi = customPoi;
+      _selectedPoi = selectedPoi;
       if (replaceIndex >= 0) {
         _destinations[replaceIndex] = _DestinationItem(
-          poi: customPoi,
+          poi: selectedPoi,
           mode: _destinations[replaceIndex].mode,
         );
       } else {
-        _destinations.add(_DestinationItem(poi: customPoi, mode: null));
+        _destinations.add(_DestinationItem(poi: selectedPoi, mode: null));
       }
       _activeDestination = targetIndex;
     });
@@ -617,9 +755,14 @@ class _MapScreenState extends State<MapScreen> {
     if (_userPos == null) {
       try {
         await _loadUserLocation();
-      } catch (_) {}
+      } catch (e) {
+        _showLocationProblem(e);
+        routeState.fail(_locationErrorMessage(e));
+      }
       if (_userPos == null) {
-        routeState.fail(context.l10n.userLocationNotFound);
+        if (routeState.error == null) {
+          routeState.fail(context.l10n.userLocationNotFound);
+        }
         return;
       }
     }
@@ -674,21 +817,59 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   void _drawRoute(RouteResponse resp) {
+    _routeAnimationTimer?.cancel();
     final coords = (resp.geometry['coordinates'] as List)
         .map((c) => c as List)
         .map((c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()))
         .toList();
 
+    if (coords.length < 2) {
+      setState(() => _polylines = <Polyline>{});
+      return;
+    }
+
+    var visiblePoints = 1;
+    const animationSteps = 28;
+    final pointsPerTick =
+        (coords.length / animationSteps).ceil().clamp(1, coords.length).toInt();
+
     setState(() {
       _polylines = {
         Polyline(
           polylineId: const PolylineId('route'),
-          points: coords,
+          points: coords.take(visiblePoints).toList(),
           width: 5,
           color: _base,
         ),
       };
     });
+
+    _routeAnimationTimer = Timer.periodic(
+      const Duration(milliseconds: 28),
+      (timer) {
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+
+        visiblePoints =
+            (visiblePoints + pointsPerTick).clamp(0, coords.length).toInt();
+        setState(() {
+          _polylines = {
+            Polyline(
+              polylineId: const PolylineId('route'),
+              points: coords.take(visiblePoints).toList(),
+              width: 5,
+              color: _base,
+            ),
+          };
+        });
+
+        if (visiblePoints >= coords.length) {
+          timer.cancel();
+        }
+      },
+    );
   }
 
   List<Poi> _buildDestinationOptions(List<Poi> allPoi, Poi selectedPoi) {
@@ -802,88 +983,31 @@ class _MapScreenState extends State<MapScreen> {
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _historyTitle(),
-                  style: const TextStyle(
-                    color: _base,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                if (_historyLoading)
-                  const Center(child: CircularProgressIndicator())
-                else if (_routeHistory.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    child: Center(child: Text(_emptyHistoryText())),
-                  )
-                else
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 420),
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: _routeHistory.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (_, index) {
-                        final item = _routeHistory[index];
-                        final distance =
-                            '${(item.distanceM / 1000).toStringAsFixed(1)} ${context.l10n.kmUnit}';
-                        final minutes =
-                            '${(item.durationS / 60).toStringAsFixed(0)} ${context.l10n.minUnit}';
-                        return ListTile(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(color: _base.withOpacity(0.12)),
-                          ),
-                          leading: const Icon(Icons.history, color: _base),
-                          title: Text(
-                            item.destinationName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          subtitle: Text(
-                            '${_modeText(item.profile)} · $distance · $minutes',
-                          ),
-                          onTap: () {
-                            Navigator.pop(context);
-                            final poi = Poi(
-                              id: -item.id,
-                              name: item.destinationName,
-                              description: distance,
-                              latitude: item.toLat,
-                              longitude: item.toLng,
-                              category: 'custom',
-                            );
-                            _focusPoiOnMap(poi);
-                          },
-                        );
-                      },
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
+      builder: (context) => _RouteHistorySheet(
+        title: _historyTitle(),
+        emptyText: _emptyHistoryText(),
+        loading: _historyLoading,
+        history: _routeHistory,
+        modeText: _modeText,
+        onSelected: (item) {
+          Navigator.pop(context);
+          final distance =
+              '${(item.distanceM / 1000).toStringAsFixed(1)} ${context.l10n.kmUnit}';
+          final poi = Poi(
+            id: -item.id,
+            name: item.destinationName,
+            description: distance,
+            latitude: item.toLat,
+            longitude: item.toLng,
+            category: 'custom',
+          );
+          _focusPoiOnMap(poi);
+        },
+      ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final poiState = context.watch<PoiState>();
-    final routeState = context.watch<RouteState>();
-    final categories = _availableCategories(poiState.poi);
-    final filteredPoi = [..._filteredPoi(poiState.poi), ..._filteredGooglePlaces()];
-    final filteredCount = filteredPoi.length;
+  Future<void> _openNearbyFiltersSheet() async {
     const nearbyTypes = [
       'tourist_attraction',
       'cafe',
@@ -891,313 +1015,124 @@ class _MapScreenState extends State<MapScreen> {
       'museum',
       'park',
     ];
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => _NearbyFiltersSheet(
+        title: _nearbyTitle(),
+        nearbyTypes: nearbyTypes,
+        selectedType: _selectedNearbyType,
+        loading: _placesLoading,
+        typeText: _nearbyTypeText,
+        onSelected: (type) {
+          Navigator.pop(context);
+          _loadGoogleNearby(type);
+        },
+      ),
+    );
+  }
+
+  Future<void> _openRoutesSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => _RoutesSheet(
+        destinations: _destinations,
+        modeText: _modeText,
+        onAdd: () {
+          Navigator.pop(context);
+          _showDestinationSheet();
+        },
+        onEdit: (index) {
+          Navigator.pop(context);
+          _showDestinationSheet(editIndex: index);
+        },
+        onBuild: (index) {
+          Navigator.pop(context);
+          _buildAndDrawRoute(index);
+        },
+      ),
+    );
+  }
+
+  Widget _buildRouteSummaryCard() {
+    final activeIndex = _activeDestination;
+    if (activeIndex == null || activeIndex >= _destinations.length) {
+      return const SizedBox.shrink();
+    }
+
+    final destination = _destinations[activeIndex];
+    final selected = _selectedPoi;
+    if (selected == null || selected.id != destination.poi.id) {
+      return const SizedBox.shrink();
+    }
+
+    final distance = destination.distanceM;
+    final duration = destination.durationS;
+    final mode = destination.mode;
+    if (distance == null || duration == null || mode == null) {
+      return const SizedBox.shrink();
+    }
+
+    return _RouteSummaryCard(
+      title: _routeReadyTitle(),
+      distanceLabel: _routeDistanceTitle(),
+      timeLabel: _routeTimeTitle(),
+      modeLabel: _routeModeTitle(),
+      distance: _formatDistance(distance),
+      duration: _formatDuration(duration),
+      mode: _modeText(mode),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final poiState = context.watch<PoiState>();
+    final routeState = context.watch<RouteState>();
+    final filteredPoi = [..._filteredPoi(poiState.poi), ..._filteredGooglePlaces()];
+    final filteredCount = filteredPoi.length;
     final isFavorite =
         _selectedPoi != null &&
         _selectedPoi!.id > 0 &&
         _favoritePoiIds.contains(_selectedPoi!.id);
+    final showRouteSummaryGap =
+        _activeDestination != null &&
+        _activeDestination! < _destinations.length &&
+        _destinations[_activeDestination!].distanceM != null &&
+        _selectedPoi?.id == _destinations[_activeDestination!].poi.id;
 
     return SafeArea(
       child: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: _base.withOpacity(0.12)),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          context.l10n.destinations,
-                          style: TextStyle(
-                            color: _base,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: () => _showDestinationSheet(),
-                        icon: const Icon(Icons.add),
-                        label: Text(context.l10n.add),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        tooltip: _historyTitle(),
-                        onPressed: _openHistorySheet,
-                        icon: const Icon(Icons.history, color: _base),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: _searchCtrl,
-                    textInputAction: TextInputAction.search,
-                    decoration: InputDecoration(
-                      hintText: _searchHint(),
-                      prefixIcon: IconButton(
-                        onPressed: _searchGooglePlaces,
-                        icon: const Icon(Icons.search),
-                      ),
-                      suffixIcon: _searchQuery.isEmpty
-                          ? null
-                          : IconButton(
-                              onPressed: () {
-                                _searchCtrl.clear();
-                                setState(() => _searchQuery = '');
-                                _applyMapFilters();
-                              },
-                              icon: const Icon(Icons.close),
-                            ),
-                      isDense: true,
-                    ),
-                    onChanged: (value) {
-                      setState(() => _searchQuery = value);
-                      _applyMapFilters();
-                    },
-                    onSubmitted: (_) => _searchGooglePlaces(),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 36,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: categories.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 8),
-                      itemBuilder: (_, index) {
-                        final category = categories[index];
-                        return ChoiceChip(
-                          selected: _selectedCategory == category,
-                          label: Text(_categoryText(category)),
-                          onSelected: (_) {
-                            setState(() => _selectedCategory = category);
-                            _applyMapFilters();
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Text(
-                        _nearbyTitle(),
-                        style: TextStyle(
-                          color: _base.withOpacity(0.72),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      if (_placesLoading) ...[
-                        const SizedBox(width: 8),
-                        const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  SizedBox(
-                    height: 38,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: nearbyTypes.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 8),
-                      itemBuilder: (_, index) {
-                        final type = nearbyTypes[index];
-                        return ActionChip(
-                          avatar: Icon(
-                            _selectedNearbyType == type
-                                ? Icons.check
-                                : Icons.travel_explore,
-                            size: 18,
-                          ),
-                          label: Text(_nearbyTypeText(type)),
-                          onPressed: _placesLoading
-                              ? null
-                              : () => _loadGoogleNearby(type),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      _isRu
-                          ? 'Найдено мест: $filteredCount'
-                          : 'Places found: $filteredCount',
-                      style: TextStyle(
-                        color: _base.withOpacity(0.64),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  if (_searchQuery.trim().isNotEmpty && filteredPoi.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      height: 42,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: filteredPoi.take(6).length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 8),
-                        itemBuilder: (_, index) {
-                          final poi = filteredPoi[index];
-                          return ActionChip(
-                            avatar: const Icon(Icons.place_outlined, size: 18),
-                            label: Text(
-                              poi.name,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            onPressed: () => _focusPoiOnMap(poi),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 8),
-                  if (_destinations.isEmpty)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF7F8FC),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        context.l10n.noDestinations,
-                        style: TextStyle(color: _base),
-                      ),
-                    )
-                  else
-                    SizedBox(
-                      height: 140,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _destinations.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 8),
-                        itemBuilder: (_, i) {
-                          final d = _destinations[i];
-                          final active = _activeDestination == i;
-                          final modeLabel = d.mode == null
-                              ? context.l10n.selectMode
-                              : d.mode!.toUpperCase();
-                          final eta = d.durationS == null
-                              ? '--'
-                              : '${(d.durationS! / 60).toStringAsFixed(0)} ${context.l10n.minUnit}';
-                          final dist = d.distanceM == null
-                              ? '--'
-                              : '${(d.distanceM! / 1000).toStringAsFixed(1)} ${context.l10n.kmUnit}';
-                          return InkWell(
-                            onTap: d.mode == null
-                                ? () => _showDestinationSheet(editIndex: i)
-                                : () => _buildAndDrawRoute(i),
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              width: 220,
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: active
-                                    ? const Color(0xFFFFF3D9)
-                                    : Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: _base.withOpacity(0.18),
-                                ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          d.poi.name,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            color: _base,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ),
-                                      IconButton(
-                                        padding: EdgeInsets.zero,
-                                        constraints:
-                                            const BoxConstraints.tightFor(
-                                              width: 26,
-                                              height: 26,
-                                            ),
-                                        onPressed: () =>
-                                            _showDestinationSheet(editIndex: i),
-                                        icon: const Icon(
-                                          Icons.edit_outlined,
-                                          size: 16,
-                                        ),
-                                      ),
-                                      IconButton(
-                                        padding: EdgeInsets.zero,
-                                        constraints:
-                                            const BoxConstraints.tightFor(
-                                              width: 26,
-                                              height: 26,
-                                            ),
-                                        onPressed: () {
-                                          setState(() {
-                                            _destinations.removeAt(i);
-                                            if (_activeDestination == i) {
-                                              _activeDestination = null;
-                                              _polylines = {};
-                                            } else if (_activeDestination !=
-                                                    null &&
-                                                _activeDestination! > i) {
-                                              _activeDestination =
-                                                  _activeDestination! - 1;
-                                            }
-                                          });
-                                        },
-                                        icon: const Icon(
-                                          Icons.delete_outline,
-                                          size: 16,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  Text(
-                                    '$modeLabel · $dist · $eta',
-                                    style: TextStyle(
-                                      color: _base.withOpacity(0.7),
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  Align(
-                                    alignment: Alignment.bottomRight,
-                                    child: TextButton(
-                                      onPressed: d.mode == null
-                                          ? () => _showDestinationSheet(editIndex: i)
-                                          : () => _buildAndDrawRoute(i),
-                                      child: Text(context.l10n.directions),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                ],
-              ),
-            ),
+          _MapTopPanel(
+            searchCtrl: _searchCtrl,
+            searchQuery: _searchQuery,
+            filteredPoi: filteredPoi,
+            placesLoading: _placesLoading,
+            foundLabel: _isRu
+                ? 'Найдено мест: $filteredCount'
+                : 'Places found: $filteredCount',
+            title: _selectedNearbyType == null
+                ? (_isRu ? 'Карта и поиск' : 'Map and search')
+                : _nearbyTypeText(_selectedNearbyType!),
+            searchHint: _searchHint(),
+            nearbyTitle: _nearbyTitle(),
+            historyTitle: _historyTitle(),
+            onOpenNearby: _openNearbyFiltersSheet,
+            onOpenRoutes: _openRoutesSheet,
+            onOpenHistory: _openHistorySheet,
+            onSearch: _searchGooglePlaces,
+            onSearchChanged: (value) {
+              setState(() => _searchQuery = value);
+              _applyMapFilters();
+            },
+            onClearSearch: () {
+              _searchCtrl.clear();
+              setState(() => _searchQuery = '');
+              _applyMapFilters();
+            },
+            onFocusPoi: _focusPoiOnMap,
           ),
           Expanded(
             child: Stack(
@@ -1215,143 +1150,19 @@ class _MapScreenState extends State<MapScreen> {
                   onMapCreated: _onMapCreated,
                   onTap: _onMapTap,
                 ),
-                Positioned(
-                  left: 10,
-                  right: 10,
-                  bottom: 10,
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: _base.withOpacity(0.12)),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (poiState.loading)
-                          const Padding(
-                            padding: EdgeInsets.only(bottom: 8),
-                            child: LinearProgressIndicator(),
-                          ),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _selectedPoi == null
-                                        ? context.l10n.tapMarkerOrAdd
-                                        : _selectedPoi!.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: _base,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                  if (_selectedPoi != null) ...[
-                                    const SizedBox(height: 3),
-                                    Text(
-                                      _selectedPoi!.address ??
-                                          _selectedPoi!.description,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: _base.withOpacity(0.68),
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 3),
-                                    Wrap(
-                                      spacing: 10,
-                                      runSpacing: 4,
-                                      children: [
-                                        Text(
-                                          _distanceToSelectedLabel(_selectedPoi!),
-                                          style: TextStyle(
-                                            color: _base.withOpacity(0.78),
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                        if (_selectedPoi!.rating != null)
-                                          Text(
-                                            '★ ${_selectedPoi!.rating!.toStringAsFixed(1)}',
-                                            style: const TextStyle(
-                                              color: _accent,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w800,
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                    if (_selectedPoi!.category != null)
-                                      Text(
-                                        _categoryText(_selectedPoi!.category!),
-                                        style: TextStyle(
-                                          color: _base.withOpacity(0.58),
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (_selectedPoi != null) ...[
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: () => _focusPoiOnMap(_selectedPoi!),
-                                  icon: const Icon(
-                                    Icons.my_location_outlined,
-                                    size: 18,
-                                  ),
-                                  label: Text(context.l10n.openOnMap),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: FilledButton.icon(
-                                  onPressed: () => _showDestinationSheet(),
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: _accent,
-                                    foregroundColor: _base,
-                                  ),
-                                  icon: const Icon(Icons.route, size: 18),
-                                  label: Text(context.l10n.directions),
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: _selectedPoi!.id <= 0
-                                    ? null
-                                    : _toggleFavorite,
-                                icon: Icon(
-                                  isFavorite
-                                      ? Icons.favorite
-                                      : Icons.favorite_border_outlined,
-                                  color: isFavorite ? _accent : _base,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                        if (routeState.error != null) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            '${context.l10n.errorLabel}: ${routeState.error}',
-                            style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
+                _SelectedPoiCard(
+                  poiLoading: poiState.loading,
+                  routeLoading: routeState.loading,
+                  selectedPoi: _selectedPoi,
+                  isFavorite: isFavorite,
+                  routeSummary: _buildRouteSummaryCard(),
+                  showRouteSummaryGap: showRouteSummaryGap,
+                  routeError: routeState.error,
+                  distanceLabel: _distanceToSelectedLabel,
+                  categoryText: _categoryText,
+                  onFocus: _focusPoiOnMap,
+                  onDirections: () => _showDestinationSheet(),
+                  onToggleFavorite: _toggleFavorite,
                 ),
               ],
             ),
