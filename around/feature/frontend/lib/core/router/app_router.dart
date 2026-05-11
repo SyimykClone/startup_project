@@ -5,7 +5,6 @@ import '../../screens/auth/login_screen.dart';
 import '../../screens/auth/register_screen.dart';
 import '../../screens/auth/splash_screen.dart';
 import '../../screens/home/app_shell_screen.dart';
-import '../../screens/home/poi_list_screen.dart';
 import '../../screens/poi/poi_detail_screen.dart';
 import '../../screens/profile/edit_profile_screen.dart';
 import '../../models/poi.dart';
@@ -17,7 +16,6 @@ class Routes {
   static const register = '/sign-up';
   static const map = '/map';
   static const editProfile = '/profile/edit';
-  static const poiList = '/poi-list';
   static const poiDetail = '/poi-detail';
 }
 
@@ -74,9 +72,6 @@ class AppRouter {
 
       case Routes.editProfile:
         return MaterialPageRoute(builder: (_) => const EditProfileScreen());
-
-      case Routes.poiList:
-        return MaterialPageRoute(builder: (_) => const PoiListScreen());
 
       case Routes.poiDetail:
         final poi = settings.arguments as Poi;

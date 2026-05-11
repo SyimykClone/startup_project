@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/i18n/l10n.dart';
 import '../../models/poi.dart';
-import '../ar/ar_placeholder_screen.dart';
+import '../ar/ar_screen.dart';
 import '../favorites/favorites_screen.dart';
 import '../profile/profile_screen.dart';
 import '../tours/tours_screen.dart';
@@ -45,7 +45,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
         index: _index,
         children: [
           FavoritesScreen(refreshTick: _favoritesRefreshTick),
-          const ArPlaceholderScreen(),
+          const ArScreen(),
           MapScreen(initialPoi: widget.initialPoi),
           ToursScreen(refreshTick: _toursRefreshTick),
           ProfileScreen(refreshTick: _profileRefreshTick),
