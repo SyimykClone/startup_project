@@ -10,6 +10,11 @@ class Poi {
   final String? address;
   final String? photoName;
   final String? photoUrl;
+  final bool arEnabled;
+  final String? arModelAsset;
+  final String? arTitle;
+  final String? arDescription;
+  final int arRadiusM;
 
   Poi({
     required this.id,
@@ -23,6 +28,11 @@ class Poi {
     this.address,
     this.photoName,
     this.photoUrl,
+    this.arEnabled = false,
+    this.arModelAsset,
+    this.arTitle,
+    this.arDescription,
+    this.arRadiusM = 120,
   });
 
   factory Poi.fromJson(Map<String, dynamic> json) {
@@ -38,6 +48,11 @@ class Poi {
       address: json['address'] as String?,
       photoName: json['photo_name'] as String?,
       photoUrl: json['photo_url'] as String?,
+      arEnabled: json['ar_enabled'] == true,
+      arModelAsset: json['ar_model_asset'] as String?,
+      arTitle: json['ar_title'] as String?,
+      arDescription: json['ar_description'] as String?,
+      arRadiusM: (json['ar_radius_m'] as num?)?.toInt() ?? 120,
     );
   }
 }
