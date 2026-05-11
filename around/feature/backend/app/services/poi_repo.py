@@ -1,4 +1,4 @@
-﻿from typing import List, Optional
+from typing import List, Optional
 from app.core.db import get_pool
 from app.models.poi import Poi
 
@@ -11,6 +11,11 @@ def _poi_from_row(row) -> Poi:
         latitude=row["latitude"],
         longitude=row["longitude"],
         category=row["category"],
+        ar_enabled=row["ar_enabled"],
+        ar_model_asset=row["ar_model_asset"],
+        ar_title=row["ar_title"],
+        ar_description=row["ar_description"],
+        ar_radius_m=row["ar_radius_m"],
     )
 
 
@@ -19,7 +24,9 @@ async def list_poi() -> List[Poi]:
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT id, name, description, latitude, longitude, category
+            SELECT
+                id, name, description, latitude, longitude, category,
+                ar_enabled, ar_model_asset, ar_title, ar_description, ar_radius_m
             FROM poi
             WHERE source = 'seed'
             ORDER BY id
@@ -33,7 +40,9 @@ async def get_poi(poi_id: int) -> Optional[Poi]:
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
-            SELECT id, name, description, latitude, longitude, category
+            SELECT
+                id, name, description, latitude, longitude, category,
+                ar_enabled, ar_model_asset, ar_title, ar_description, ar_radius_m
             FROM poi
             WHERE id = $1
             """,
@@ -47,7 +56,9 @@ async def get_accessible_poi(poi_id: int, users_id: int) -> Optional[Poi]:
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
-            SELECT id, name, description, latitude, longitude, category
+            SELECT
+                id, name, description, latitude, longitude, category,
+                ar_enabled, ar_model_asset, ar_title, ar_description, ar_radius_m
             FROM poi
             WHERE id = $1
               AND (
@@ -90,7 +101,9 @@ async def create_custom_poi_from_coordinates(
                 $5,
                 $6
             )
-            RETURNING id, name, description, latitude, longitude, category
+            RETURNING
+                id, name, description, latitude, longitude, category,
+                ar_enabled, ar_model_asset, ar_title, ar_description, ar_radius_m
             """,
             name,
             description,
@@ -107,7 +120,10 @@ async def list_favorite_poi(users_id: int) -> List[Poi]:
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT p.id, p.name, p.description, p.latitude, p.longitude, p.category
+            SELECT
+                p.id, p.name, p.description, p.latitude, p.longitude, p.category,
+                p.ar_enabled, p.ar_model_asset, p.ar_title,
+                p.ar_description, p.ar_radius_m
             FROM users_favorite_poi fp
             JOIN poi p ON p.id = fp.poi_id
             WHERE fp.users_id = $1
@@ -155,7 +171,10 @@ async def list_visited_poi(users_id: int) -> List[Poi]:
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT p.id, p.name, p.description, p.latitude, p.longitude, p.category
+            SELECT
+                p.id, p.name, p.description, p.latitude, p.longitude, p.category,
+                p.ar_enabled, p.ar_model_asset, p.ar_title,
+                p.ar_description, p.ar_radius_m
             FROM users_visited_poi vp
             JOIN poi p ON p.id = vp.poi_id
             WHERE vp.users_id = $1
