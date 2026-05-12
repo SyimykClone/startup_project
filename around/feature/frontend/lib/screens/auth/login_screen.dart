@@ -111,6 +111,134 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _openResetPasswordDialog() async {
+    final isRu = Localizations.localeOf(context).languageCode == 'ru';
+    final emailCtrl = TextEditingController(text: _email.text.trim());
+    final passCtrl = TextEditingController();
+    final repeatCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    var hidePass = true;
+    var hideRepeat = true;
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return AlertDialog(
+              title: Text(isRu ? 'Восстановление пароля' : 'Password recovery'),
+              content: Form(
+                key: formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        isRu
+                            ? 'Введите email аккаунта и новый пароль.'
+                            : 'Enter your account email and a new password.',
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: emailCtrl,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: InputDecoration(labelText: context.l10n.email),
+                        validator: (value) {
+                          final email = (value ?? '').trim().toLowerCase();
+                          if (email.isEmpty) return context.l10n.emailRequired;
+                          if (!_isValidEmail(email)) return context.l10n.emailInvalid;
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: passCtrl,
+                        obscureText: hidePass,
+                        decoration: InputDecoration(
+                          labelText: isRu ? 'Новый пароль' : 'New password',
+                          helperText: context.l10n.passwordMin6,
+                          suffixIcon: IconButton(
+                            onPressed: () => setModalState(() => hidePass = !hidePass),
+                            icon: Icon(
+                              hidePass ? Icons.visibility : Icons.visibility_off,
+                            ),
+                          ),
+                        ),
+                        validator: (value) {
+                          final pass = (value ?? '').trim();
+                          if (pass.isEmpty) return context.l10n.passwordRequired;
+                          if (!_isStrongEnoughPassword(pass)) return context.l10n.passwordWeak;
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: repeatCtrl,
+                        obscureText: hideRepeat,
+                        decoration: InputDecoration(
+                          labelText: isRu ? 'Повторите пароль' : 'Repeat password',
+                          suffixIcon: IconButton(
+                            onPressed: () => setModalState(() => hideRepeat = !hideRepeat),
+                            icon: Icon(
+                              hideRepeat ? Icons.visibility : Icons.visibility_off,
+                            ),
+                          ),
+                        ),
+                        validator: (value) {
+                          if ((value ?? '').trim() != passCtrl.text.trim()) {
+                            return isRu ? 'Пароли не совпадают' : 'Passwords do not match';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: Text(context.l10n.cancel),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    final ok = formKey.currentState?.validate() ?? false;
+                    if (!ok) return;
+                    Navigator.pop(context, true);
+                  },
+                  child: Text(isRu ? 'Сохранить пароль' : 'Save password'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (saved != true) return;
+    if (!mounted) return;
+
+    final success = await context.read<AuthState>().resetPassword(
+          emailCtrl.text.trim().toLowerCase(),
+          passCtrl.text.trim(),
+        );
+
+    if (!mounted) return;
+    if (success) {
+      _email.text = emailCtrl.text.trim().toLowerCase();
+      _pass.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isRu
+                ? 'Пароль обновлён. Теперь войдите с новым паролем.'
+                : 'Password updated. Now sign in with the new password.',
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     const base = Color(0xFF151E3F);
@@ -225,6 +353,17 @@ class _LoginScreenState extends State<LoginScreen> {
                               return null;
                             },
                             onFieldSubmitted: (_) => _submit(),
+                          ),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: disabled ? null : _openResetPasswordDialog,
+                              child: Text(
+                                Localizations.localeOf(context).languageCode == 'ru'
+                                    ? 'Забыли пароль?'
+                                    : 'Forgot password?',
+                              ),
+                            ),
                           ),
                           const SizedBox(height: 18),
                           SizedBox(

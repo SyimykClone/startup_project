@@ -1,14 +1,16 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/i18n/l10n.dart';
 import '../../core/network/api_client.dart';
-import '../../models/gamification.dart';
 import '../../core/router/app_router.dart';
+import '../../models/gamification.dart';
 import '../../models/poi.dart';
+import '../../models/route_models.dart';
 import '../../services/gamification_service.dart';
 import '../../services/poi_service.dart';
+import '../../services/route_service.dart';
 import '../../state/auth_state.dart';
 import '../../state/locale_state.dart';
 
@@ -24,23 +26,27 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   static const accent = Color(0xFFFAA916);
   static const base = Color(0xFF151E3F);
+  static const soft = Color(0xFFF6F7FB);
 
   late PoiService _poiService;
   late GamificationService _gamificationService;
+  late RouteService _routeService;
   bool _initialized = false;
-  List<Poi> _visited = [];
-  GamificationProgress? _progress;
-  bool _loadingProgress = false;
-  String? _progressError;
-  bool _loadingVisited = false;
-  String? _visitedError;
 
-  String _fallbackUsername() =>
-      Localizations.localeOf(context).languageCode == 'ru'
-          ? 'Путешественник'
-          : 'Traveler';
+  List<Poi> _visited = [];
+  List<RouteHistoryItem> _routeHistory = [];
+  GamificationProgress? _progress;
+
+  bool _loadingProgress = false;
+  bool _loadingVisited = false;
+  bool _loadingRoutes = false;
+  String? _progressError;
+  String? _visitedError;
+  String? _routesError;
 
   bool get _isRu => Localizations.localeOf(context).languageCode == 'ru';
+
+  String _fallbackUsername() => _isRu ? 'Путешественник' : 'Traveler';
 
   String _roleLabel(AuthState auth) {
     if (auth.isBusiness) return _isRu ? 'Бизнес-профиль' : 'Business profile';
@@ -48,7 +54,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   String _rankTitle(int level) {
-    if (level >= 5) return _isRu ? 'Гид маршрутов' : 'Route guide';
+    if (level >= 10) return _isRu ? 'Мастер маршрутов' : 'Route master';
+    if (level >= 8) return _isRu ? 'Гид маршрутов' : 'Route guide';
+    if (level >= 5) return _isRu ? 'Следопыт' : 'Pathfinder';
     if (level >= 3) return _isRu ? 'Исследователь' : 'Explorer';
     if (level >= 2) return _isRu ? 'Путешественник' : 'Traveler';
     return _isRu ? 'Новичок' : 'Beginner';
@@ -68,25 +76,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final cfg = context.read<AppConfig>();
     final token = context.read<AuthState>().token;
-    _poiService = PoiService(
-      ApiClient(cfg.apiBaseUrl, token: token),
-      useMock: cfg.useMock,
-    );
-    _gamificationService = GamificationService(
-      ApiClient(cfg.apiBaseUrl, token: token),
-    );
+    final api = ApiClient(cfg.apiBaseUrl, token: token);
 
-    _loadProgress();
-    _loadVisited();
+    _poiService = PoiService(api, useMock: cfg.useMock);
+    _gamificationService = GamificationService(api);
+    _routeService = RouteService(api, useMock: cfg.useMock);
+
+    _refreshProfile();
   }
 
   @override
   void didUpdateWidget(covariant ProfileScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.refreshTick != widget.refreshTick) {
-      _loadProgress();
-      _loadVisited();
-    }
+    if (oldWidget.refreshTick != widget.refreshTick) _refreshProfile();
+  }
+
+  Future<void> _refreshProfile() async {
+    await Future.wait([
+      _loadProgress(),
+      _loadVisited(),
+      _loadRouteHistory(),
+    ]);
   }
 
   Future<void> _loadProgress() async {
@@ -123,37 +133,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _loadRouteHistory() async {
+    setState(() {
+      _loadingRoutes = true;
+      _routesError = null;
+    });
+    try {
+      final data = await _routeService.fetchHistory(limit: 5);
+      if (!mounted) return;
+      setState(() => _routeHistory = data);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _routesError = e.toString());
+    } finally {
+      if (mounted) setState(() => _loadingRoutes = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthState>();
+    final localeState = context.watch<LocaleState>();
     final rawUsername = auth.username?.trim();
     final username =
         rawUsername == null || rawUsername.isEmpty || rawUsername.toLowerCase() == 'user'
             ? _fallbackUsername()
             : rawUsername;
-    final avatarUrl = auth.avatarUrl;
-    final localeState = context.watch<LocaleState>();
 
     return SafeArea(
       child: RefreshIndicator(
-        onRefresh: () async {
-          await Future.wait([_loadProgress(), _loadVisited()]);
-        },
+        onRefresh: _refreshProfile,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(16),
           children: [
-            _buildProfileHeader(
-              context,
-              username: username,
-              avatarUrl: avatarUrl,
-              auth: auth,
-              localeState: localeState,
-            ),
+            _buildHero(username, auth, localeState),
             const SizedBox(height: 14),
-            _buildGamificationCard(context),
+            _buildProgressSection(),
             const SizedBox(height: 14),
-            _buildVisitedPreview(context),
+            _buildRouteHistorySection(),
+            const SizedBox(height: 14),
+            _buildVisitedSection(),
             const SizedBox(height: 18),
           ],
         ),
@@ -161,20 +181,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildProfileHeader(
-    BuildContext context, {
-    required String username,
-    required String? avatarUrl,
-    required AuthState auth,
-    required LocaleState localeState,
-  }) {
+  Widget _buildHero(String username, AuthState auth, LocaleState localeState) {
     final progress = _progress;
+    final avatarUrl = auth.avatarUrl;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: base,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(26),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -185,12 +200,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onTap: () => Navigator.pushNamed(context, Routes.editProfile),
                 borderRadius: BorderRadius.circular(44),
                 child: Container(
-                  width: 70,
-                  height: 70,
+                  width: 76,
+                  height: 76,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: const Color(0xFFFFF8E8),
-                    border: Border.all(color: accent, width: 1.5),
+                    border: Border.all(color: accent, width: 2),
                   ),
                   child: avatarUrl != null
                       ? ClipOval(
@@ -198,10 +213,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             avatarUrl,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) =>
-                                const Icon(Icons.person_outline, size: 34),
+                                const Icon(Icons.person_outline, size: 36, color: base),
                           ),
                         )
-                      : const Icon(Icons.person_outline, size: 34, color: base),
+                      : const Icon(Icons.person_outline, size: 36, color: base),
                 ),
               ),
               const SizedBox(width: 14),
@@ -215,7 +230,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 25,
+                        fontSize: 27,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
@@ -228,7 +243,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.72),
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
@@ -244,31 +259,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   PopupMenuItem(value: 'en', child: Text(context.l10n.english)),
                 ],
                 child: _ProfilePill(
-                  label: localeState.locale.languageCode.toUpperCase(),
                   icon: Icons.language,
+                  label: localeState.locale.languageCode.toUpperCase(),
                   dark: true,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           Row(
             children: [
-              _ProfilePill(
-                label: progress == null
-                    ? 'XP 0'
-                    : '${_isRu ? 'Уровень' : 'Level'} ${progress.level}',
-                icon: Icons.auto_awesome,
-                dark: true,
+              Expanded(
+                child: _HeroStat(
+                  icon: Icons.route_outlined,
+                  value: progress?.routesBuilt.toString() ?? '0',
+                  label: _isRu ? 'Маршруты' : 'Routes',
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _ProfilePill(
-                  label: progress == null
-                      ? (_isRu ? 'Активность пока пустая' : 'No activity yet')
-                      : _xpProgressText(progress),
-                  icon: Icons.bolt,
-                  dark: true,
+                child: _HeroStat(
+                  icon: Icons.place_outlined,
+                  value: progress?.newPlacesVisited.toString() ?? '0',
+                  label: _isRu ? 'Места' : 'Places',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _HeroStat(
+                  icon: Icons.auto_awesome,
+                  value: progress == null ? '0' : '${progress.level}',
+                  label: _isRu ? 'Уровень' : 'Level',
                 ),
               ),
             ],
@@ -278,120 +299,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildVisitedPreview(BuildContext context) {
-    final visibleItems = _visited.take(3).toList();
-
-    return _ProfileSection(
-      title: context.l10n.visitedTitle,
-      trailing: IconButton(
-        onPressed: _loadingVisited ? null : _loadVisited,
-        icon: const Icon(Icons.refresh, color: base),
-      ),
-      child: Builder(
-        builder: (context) {
-          if (_loadingVisited) {
-            return const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
-
-          if (_visitedError != null) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(
-                context.l10n.loadError(_visitedError!),
-                textAlign: TextAlign.center,
-              ),
-            );
-          }
-
-          if (_visited.isEmpty) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(
-                context.l10n.visitedEmpty,
-                style: const TextStyle(
-                  color: base,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            );
-          }
-
-          return Column(
-            children: [
-              ...visibleItems.map(_buildVisitedItem),
-              if (_visited.length > visibleItems.length) ...[
-                const SizedBox(height: 8),
-                Text(
-                  _isRu
-                      ? 'Показаны последние ${visibleItems.length} из ${_visited.length}'
-                      : 'Showing latest ${visibleItems.length} of ${_visited.length}',
-                  style: TextStyle(
-                    color: base.withOpacity(0.58),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildVisitedItem(Poi poi) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        dense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: BorderSide(color: base.withOpacity(0.1)),
-        ),
-        leading: const Icon(Icons.place_outlined, color: base),
-        title: Text(
-          poi.name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: base, fontWeight: FontWeight.w800),
-        ),
-        subtitle: Text(
-          poi.description,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: PopupMenuButton<String>(
-          onSelected: (value) {
-            if (value == 'details') {
-              Navigator.pushNamed(context, Routes.poiDetail, arguments: poi);
-            }
-            if (value == 'map') {
-              Navigator.pushNamed(
-                context,
-                Routes.map,
-                arguments: AppShellArgs(initialIndex: 2, initialPoi: poi),
-              );
-            }
-          },
-          itemBuilder: (_) => [
-            PopupMenuItem(value: 'details', child: Text(context.l10n.details)),
-            PopupMenuItem(value: 'map', child: Text(context.l10n.openOnMap)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGamificationCard(BuildContext context) {
+  Widget _buildProgressSection() {
     if (_loadingProgress) {
-      return _ProfileSection(
-        title: context.l10n.gamificationTitle,
-        child: const Padding(
-          padding: EdgeInsets.symmetric(vertical: 20),
+      return const _ProfileSection(
+        title: 'Прогресс',
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 18),
           child: Center(child: CircularProgressIndicator()),
         ),
       );
@@ -400,114 +313,247 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (_progressError != null || _progress == null) {
       return _ProfileSection(
         title: context.l10n.gamificationTitle,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Text(context.l10n.loadError(_progressError ?? 'empty response')),
+        child: _ProfileEmptyState(
+          icon: Icons.bolt_outlined,
+          title: _isRu ? 'Прогресс недоступен' : 'Progress unavailable',
+          text: context.l10n.loadError(_progressError ?? 'empty response'),
+          actionLabel: _isRu ? 'Обновить' : 'Refresh',
+          onAction: _loadProgress,
         ),
       );
     }
 
     final p = _progress!;
-    final progress = (p.xpProgressPercent / 100).clamp(0.0, 1.0);
+    final percent = (p.xpProgressPercent / 100).clamp(0.0, 1.0);
     final unlocked = p.achievements.where((a) => a.unlocked).length;
 
     return _ProfileSection(
       title: context.l10n.gamificationTitle,
+      trailing: _ProfilePill(
+        icon: Icons.emoji_events_outlined,
+        label: '$unlocked/${p.achievements.length}',
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Text(
-                _rankTitle(p.level),
-                style: const TextStyle(
-                  color: base,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
+              Expanded(
+                child: Text(
+                  _rankTitle(p.level),
+                  style: const TextStyle(
+                    color: base,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
-              const Spacer(),
               Text(
                 '${p.xp} XP',
                 style: const TextStyle(
                   color: accent,
+                  fontSize: 18,
                   fontWeight: FontWeight.w900,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           ClipRRect(
-            borderRadius: BorderRadius.circular(100),
+            borderRadius: BorderRadius.circular(999),
             child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 10,
-              backgroundColor: const Color(0xFFF2F3F8),
+              value: percent,
+              minHeight: 12,
+              backgroundColor: soft,
               valueColor: const AlwaysStoppedAnimation<Color>(accent),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 7),
           Text(
             _xpProgressText(p),
-            style: TextStyle(color: base.withOpacity(0.75), fontSize: 12),
+            style: TextStyle(
+              color: base.withOpacity(0.64),
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _StatCard(
-                  label: _isRu ? 'Маршруты' : 'Routes',
-                  value: p.routesBuilt.toString(),
-                  icon: Icons.route_outlined,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _StatCard(
-                  label: _isRu ? 'Места' : 'Places',
-                  value: p.newPlacesVisited.toString(),
-                  icon: Icons.place_outlined,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _StatCard(
-                  label: _isRu ? 'Бейджи' : 'Badges',
-                  value: '$unlocked/${p.achievements.length}',
-                  icon: Icons.emoji_events_outlined,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Text(
-            context.l10n.achievementsTitle,
-            style: const TextStyle(color: base, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: p.achievements.map(
-              (a) => _AchievementChip(
-                title: _achievementTitle(context, a.code, a.title),
-                unlocked: a.unlocked,
-              ),
-            ).toList(),
+            children: p.achievements
+                .map(
+                  (a) => _AchievementChip(
+                    title: _achievementTitle(context, a.code, a.title),
+                    unlocked: a.unlocked,
+                  ),
+                )
+                .toList(),
           ),
         ],
       ),
     );
   }
 
+  Widget _buildRouteHistorySection() {
+    return _ProfileSection(
+      title: _isRu ? 'История маршрутов' : 'Route history',
+      trailing: IconButton(
+        onPressed: _loadingRoutes ? null : _loadRouteHistory,
+        icon: const Icon(Icons.refresh, color: base),
+      ),
+      child: Builder(
+        builder: (_) {
+          if (_loadingRoutes) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 18),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          if (_routesError != null) {
+            return _ProfileEmptyState(
+              icon: Icons.route_outlined,
+              title: _isRu ? 'История недоступна' : 'History unavailable',
+              text: context.l10n.loadError(_routesError!),
+              actionLabel: _isRu ? 'Обновить' : 'Refresh',
+              onAction: _loadRouteHistory,
+            );
+          }
+          if (_routeHistory.isEmpty) {
+            return _ProfileEmptyState(
+              icon: Icons.route_outlined,
+              title: _isRu ? 'Маршрутов пока нет' : 'No routes yet',
+              text: _isRu
+                  ? 'Постройте маршрут на карте, и последние поездки появятся здесь.'
+                  : 'Build a route on the map, and recent trips will appear here.',
+            );
+          }
+          return Column(
+            children: _routeHistory
+                .map(
+                  (item) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _RouteHistoryTile(item: item),
+                  ),
+                )
+                .toList(),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildVisitedSection() {
+    final visibleItems = _visited.take(4).toList();
+    return _ProfileSection(
+      title: context.l10n.visitedTitle,
+      trailing: IconButton(
+        onPressed: _loadingVisited ? null : _loadVisited,
+        icon: const Icon(Icons.refresh, color: base),
+      ),
+      child: Builder(
+        builder: (_) {
+          if (_loadingVisited) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 18),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+          if (_visitedError != null) {
+            return _ProfileEmptyState(
+              icon: Icons.place_outlined,
+              title: _isRu ? 'Посещённые места недоступны' : 'Visited unavailable',
+              text: context.l10n.loadError(_visitedError!),
+              actionLabel: _isRu ? 'Обновить' : 'Refresh',
+              onAction: _loadVisited,
+            );
+          }
+          if (_visited.isEmpty) {
+            return _ProfileEmptyState(
+              icon: Icons.place_outlined,
+              title: context.l10n.visitedEmpty,
+              text: _isRu
+                  ? 'Сканируйте AR-объекты или отмечайте места на карте, чтобы собрать историю.'
+                  : 'Scan AR objects or mark places on the map to build your history.',
+            );
+          }
+          return Column(
+            children: [
+              ...visibleItems.map(
+                (poi) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _VisitedTile(poi: poi),
+                ),
+              ),
+              if (_visited.length > visibleItems.length)
+                Text(
+                  _isRu
+                      ? 'Показаны последние ${visibleItems.length} из ${_visited.length}'
+                      : 'Showing latest ${visibleItems.length} of ${_visited.length}',
+                  style: TextStyle(
+                    color: base.withOpacity(0.58),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   String _achievementTitle(BuildContext context, String code, String fallback) {
+    final isRu = Localizations.localeOf(context).languageCode == 'ru';
     switch (code) {
       case 'first_route':
         return context.l10n.achievementFirstRoute;
       case 'five_routes':
         return context.l10n.achievementFiveRoutes;
+      case 'ten_routes':
+        return isRu ? '10 маршрутов' : '10 routes';
+      case 'twenty_five_routes':
+        return isRu ? '25 маршрутов' : '25 routes';
+      case 'fifty_routes':
+        return isRu ? '50 маршрутов' : '50 routes';
       case 'first_new_place':
         return context.l10n.achievementFirstNewPlace;
+      case 'three_new_places':
+        return isRu ? '3 новых места' : '3 new places';
+      case 'ten_new_places':
+        return isRu ? '10 новых мест' : '10 new places';
+      case 'twenty_five_new_places':
+        return isRu ? '25 новых мест' : '25 new places';
+      case 'xp_500':
+        return isRu ? '500 XP опыта' : '500 XP earned';
+      case 'xp_1500':
+        return isRu ? '1500 XP опыта' : '1500 XP earned';
+      case 'xp_3500':
+        return isRu ? '3500 XP опыта' : '3500 XP earned';
+      case 'profile_opened':
+        return isRu ? 'Профиль исследован' : 'Profile explored';
+      case 'business_profile_opened':
+        return isRu ? 'Бизнес-профиль настроен' : 'Business profile explored';
+      case 'first_favorite':
+        return isRu ? 'Первое избранное' : 'First favorite';
+      case 'five_favorites':
+        return isRu ? '5 мест в избранном' : '5 favorites';
+      case 'first_tour_created':
+        return isRu ? 'Первый тур создан' : 'First tour created';
+      case 'three_tours_created':
+        return isRu ? '3 тура создано' : '3 tours created';
+      case 'first_tour_published':
+        return isRu ? 'Первый тур опубликован' : 'First tour published';
+      case 'three_tours_published':
+        return isRu ? '3 тура опубликовано' : '3 tours published';
+      case 'level_3':
+        return isRu ? 'Уровень 3' : 'Level 3';
+      case 'level_5':
+        return isRu ? 'Уровень 5' : 'Level 5';
+      case 'level_8':
+        return isRu ? 'Уровень 8' : 'Level 8';
+      case 'level_10':
+        return isRu ? 'Уровень 10' : 'Level 10';
       default:
         return fallback;
     }
@@ -532,7 +578,7 @@ class _ProfileSection extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: _ProfileScreenState.base.withOpacity(0.1)),
       ),
       child: Column(
@@ -545,7 +591,7 @@ class _ProfileSection extends StatelessWidget {
                   title,
                   style: const TextStyle(
                     color: _ProfileScreenState.base,
-                    fontSize: 18,
+                    fontSize: 20,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
@@ -561,80 +607,34 @@ class _ProfileSection extends StatelessWidget {
   }
 }
 
-class _ProfilePill extends StatelessWidget {
-  const _ProfilePill({
-    required this.label,
+class _HeroStat extends StatelessWidget {
+  const _HeroStat({
     required this.icon,
-    this.dark = false,
-  });
-
-  final String label;
-  final IconData icon;
-  final bool dark;
-
-  @override
-  Widget build(BuildContext context) {
-    final foreground = dark ? Colors.white : _ProfileScreenState.base;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: dark
-            ? Colors.white.withOpacity(0.1)
-            : const Color(0xFFFFF3D9),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: foreground, size: 15),
-          const SizedBox(width: 6),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 190),
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: foreground,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.label,
     required this.value,
-    required this.icon,
+    required this.label,
   });
 
-  final String label;
-  final String value;
   final IconData icon;
+  final String value;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF6F7FB),
-        borderRadius: BorderRadius.circular(14),
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: _ProfileScreenState.base, size: 18),
+          Icon(icon, color: _ProfileScreenState.accent, size: 19),
           const SizedBox(height: 8),
           Text(
             value,
             style: const TextStyle(
-              color: _ProfileScreenState.base,
+              color: Colors.white,
               fontSize: 18,
               fontWeight: FontWeight.w900,
             ),
@@ -644,9 +644,48 @@ class _StatCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: _ProfileScreenState.base.withOpacity(0.62),
+              color: Colors.white.withOpacity(0.62),
               fontSize: 11,
               fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfilePill extends StatelessWidget {
+  const _ProfilePill({
+    required this.icon,
+    required this.label,
+    this.dark = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool dark;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = dark ? Colors.white : _ProfileScreenState.base;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: dark ? Colors.white.withOpacity(0.1) : const Color(0xFFFFF3D9),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: foreground, size: 15),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: foreground,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
             ),
           ),
         ],
@@ -669,9 +708,7 @@ class _AchievementChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: unlocked
-            ? const Color(0xFFFFF3D9)
-            : const Color(0xFFF2F3F8),
+        color: unlocked ? const Color(0xFFFFF3D9) : const Color(0xFFF2F3F8),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
@@ -681,7 +718,7 @@ class _AchievementChip extends StatelessWidget {
             unlocked ? Icons.emoji_events : Icons.lock_outline,
             color: unlocked
                 ? _ProfileScreenState.accent
-                : _ProfileScreenState.base.withOpacity(0.5),
+                : _ProfileScreenState.base.withOpacity(0.48),
             size: 15,
           ),
           const SizedBox(width: 6),
@@ -700,6 +737,179 @@ class _AchievementChip extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RouteHistoryTile extends StatelessWidget {
+  const _RouteHistoryTile({required this.item});
+
+  final RouteHistoryItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final isRu = Localizations.localeOf(context).languageCode == 'ru';
+    final distance = item.distanceM >= 1000
+        ? '${(item.distanceM / 1000).toStringAsFixed(1)} ${context.l10n.kmUnit}'
+        : '${item.distanceM.toStringAsFixed(0)} ${isRu ? 'м' : 'm'}';
+    final duration = item.durationS >= 3600
+        ? '${(item.durationS / 3600).toStringAsFixed(1)} ${isRu ? 'ч' : 'h'}'
+        : '${(item.durationS / 60).round()} ${context.l10n.minUnit}';
+
+    return ListTile(
+      dense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+        side: BorderSide(color: _ProfileScreenState.base.withOpacity(0.1)),
+      ),
+      leading: const Icon(Icons.route_outlined, color: _ProfileScreenState.base),
+      title: Text(
+        item.destinationName,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: _ProfileScreenState.base,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      subtitle: Text('${_modeLabel(context, item.profile)} · $distance · $duration'),
+      trailing: IconButton(
+        tooltip: context.l10n.openOnMap,
+        icon: const Icon(Icons.map_outlined),
+        onPressed: () {
+          final poi = Poi(
+            id: -item.id,
+            name: item.destinationName,
+            description: distance,
+            latitude: item.toLat,
+            longitude: item.toLng,
+            category: 'custom',
+          );
+          Navigator.pushNamed(
+            context,
+            Routes.map,
+            arguments: AppShellArgs(initialIndex: 2, initialPoi: poi),
+          );
+        },
+      ),
+    );
+  }
+
+  String _modeLabel(BuildContext context, String mode) {
+    final isRu = Localizations.localeOf(context).languageCode == 'ru';
+    switch (mode) {
+      case 'walking':
+        return isRu ? 'Пешком' : 'Walking';
+      case 'driving':
+        return isRu ? 'Авто' : 'Driving';
+      case 'cycling':
+        return isRu ? 'Велосипед' : 'Cycling';
+      default:
+        return mode;
+    }
+  }
+}
+
+class _VisitedTile extends StatelessWidget {
+  const _VisitedTile({required this.poi});
+
+  final Poi poi;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      dense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+        side: BorderSide(color: _ProfileScreenState.base.withOpacity(0.1)),
+      ),
+      leading: const Icon(Icons.place_outlined, color: _ProfileScreenState.base),
+      title: Text(
+        poi.name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: _ProfileScreenState.base,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      subtitle: Text(
+        poi.description,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: PopupMenuButton<String>(
+        onSelected: (value) {
+          if (value == 'details') {
+            Navigator.pushNamed(context, Routes.poiDetail, arguments: poi);
+          }
+          if (value == 'map') {
+            Navigator.pushNamed(
+              context,
+              Routes.map,
+              arguments: AppShellArgs(initialIndex: 2, initialPoi: poi),
+            );
+          }
+        },
+        itemBuilder: (_) => [
+          PopupMenuItem(value: 'details', child: Text(context.l10n.details)),
+          PopupMenuItem(value: 'map', child: Text(context.l10n.openOnMap)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileEmptyState extends StatelessWidget {
+  const _ProfileEmptyState({
+    required this.icon,
+    required this.title,
+    required this.text,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final IconData icon;
+  final String title;
+  final String text;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _ProfileScreenState.soft,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: _ProfileScreenState.base, size: 36),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: _ProfileScreenState.base,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: _ProfileScreenState.base.withOpacity(0.66)),
+          ),
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: 10),
+            OutlinedButton(onPressed: onAction, child: Text(actionLabel!)),
+          ],
         ],
       ),
     );

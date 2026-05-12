@@ -141,6 +141,23 @@ class AuthState extends ChangeNotifier {
     }
   }
 
+  Future<bool> resetPassword(String email, String newPassword) async {
+    _loading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      await _auth.resetPassword(email, newPassword);
+      return true;
+    } catch (e) {
+      _error = _humanizeDioError(e);
+      return false;
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> logout() async {
     _loading = true;
     _error = null;
