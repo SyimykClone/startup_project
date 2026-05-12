@@ -1,4 +1,4 @@
-﻿from typing import Optional
+from typing import Optional
 from app.core.db import get_pool
 
 async def get_user_by_email(email: str) -> Optional[dict]:
@@ -83,3 +83,18 @@ async def update_user_profile(
             avatar_path,
         )
     return dict(row)
+
+
+async def update_user_password_by_email(email: str, password_hash: str) -> bool:
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        result = await conn.execute(
+            """
+            UPDATE users
+            SET password_hash = $2
+            WHERE email = $1
+            """,
+            email,
+            password_hash,
+        )
+    return result.endswith(" 1")
