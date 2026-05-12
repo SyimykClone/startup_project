@@ -18,11 +18,23 @@ XP_ROUTE_BUILT = 8
 XP_NEW_PLACE = 22
 
 COMMON_ACHIEVEMENTS = {
+    "app_started": "App started",
+    "profile_customized": "Profile customized",
+    "map_started": "Map started",
+    "favorite_started": "Favorite started",
+    "ar_object_found": "AR object found",
+    "custom_point_created": "Custom point created",
+    "all_rounder": "All-round explorer",
+    "xp_100": "100 XP",
     "xp_500": "500 XP",
+    "xp_750": "750 XP",
     "xp_1500": "1500 XP",
+    "xp_2500": "2500 XP",
     "xp_3500": "3500 XP",
+    "level_2": "Level 2",
     "level_3": "Level 3",
     "level_5": "Level 5",
+    "level_7": "Level 7",
     "level_8": "Level 8",
     "level_10": "Level 10",
 }
@@ -40,14 +52,20 @@ USER_ACHIEVEMENTS = {
     "twenty_five_new_places": "25 new places",
     "first_favorite": "First favorite",
     "five_favorites": "5 favorites",
+    "ten_favorites": "10 favorites",
+    "first_custom_point": "First custom point",
+    "three_custom_points": "3 custom points",
 }
 
 BUSINESS_ACHIEVEMENTS = {
     "business_profile_opened": "Business profile explored",
     "first_tour_created": "First tour created",
     "three_tours_created": "3 tours created",
+    "five_tours_created": "5 tours created",
+    "first_draft_tour": "First draft tour",
     "first_tour_published": "First tour published",
     "three_tours_published": "3 tours published",
+    "five_tours_published": "5 tours published",
 }
 
 ROUTE_ACHIEVEMENTS = [
@@ -66,14 +84,19 @@ PLACE_ACHIEVEMENTS = [
 ]
 
 XP_ACHIEVEMENTS = [
+    (100, "xp_100"),
     (500, "xp_500"),
+    (750, "xp_750"),
     (1500, "xp_1500"),
+    (2500, "xp_2500"),
     (3500, "xp_3500"),
 ]
 
 LEVEL_ACHIEVEMENTS = [
+    (2, "level_2"),
     (3, "level_3"),
     (5, "level_5"),
+    (7, "level_7"),
     (8, "level_8"),
     (10, "level_10"),
 ]
@@ -81,11 +104,18 @@ LEVEL_ACHIEVEMENTS = [
 FAVORITE_ACHIEVEMENTS = [
     (1, "first_favorite"),
     (5, "five_favorites"),
+    (10, "ten_favorites"),
 ]
 
 TOUR_ACHIEVEMENTS = [
     (1, "first_tour_created"),
     (3, "three_tours_created"),
+    (5, "five_tours_created"),
+]
+
+CUSTOM_POINT_ACHIEVEMENTS = [
+    (1, "first_custom_point"),
+    (3, "three_custom_points"),
 ]
 
 
@@ -157,10 +187,14 @@ async def _sync_progress_rewards(
     conn,
     user_id: int,
     user_type: str,
+    username: str,
+    avatar_path: str | None,
     xp: int,
     routes_built: int,
     new_places_visited: int,
     favorites_count: int,
+    custom_points_count: int,
+    ar_visits_count: int,
     tours_created: int,
     tours_published: int,
 ) -> int:
@@ -186,18 +220,43 @@ async def _sync_progress_rewards(
     for required_level, code in LEVEL_ACHIEVEMENTS:
         if level >= required_level:
             await _unlock_achievement_if_needed(conn, user_id, code)
+    await _unlock_achievement_if_needed(conn, user_id, "app_started")
+    if avatar_path or (username and username.strip().lower() != "user"):
+        await _unlock_achievement_if_needed(conn, user_id, "profile_customized")
+    if routes_built >= 1:
+        await _unlock_achievement_if_needed(conn, user_id, "map_started")
+    if favorites_count >= 1:
+        await _unlock_achievement_if_needed(conn, user_id, "favorite_started")
+    if custom_points_count >= 1:
+        await _unlock_achievement_if_needed(conn, user_id, "custom_point_created")
+    if ar_visits_count >= 1:
+        await _unlock_achievement_if_needed(conn, user_id, "ar_object_found")
+    if (
+        routes_built >= 1
+        and new_places_visited >= 1
+        and favorites_count >= 1
+        and custom_points_count >= 1
+    ):
+        await _unlock_achievement_if_needed(conn, user_id, "all_rounder")
     if user_type == "business":
         for required_count, code in TOUR_ACHIEVEMENTS:
             if tours_created >= required_count:
                 await _unlock_achievement_if_needed(conn, user_id, code)
+        if tours_created > tours_published:
+            await _unlock_achievement_if_needed(conn, user_id, "first_draft_tour")
         if tours_published >= 1:
             await _unlock_achievement_if_needed(conn, user_id, "first_tour_published")
         if tours_published >= 3:
             await _unlock_achievement_if_needed(conn, user_id, "three_tours_published")
+        if tours_published >= 5:
+            await _unlock_achievement_if_needed(conn, user_id, "five_tours_published")
         await _unlock_achievement_if_needed(conn, user_id, "business_profile_opened")
     else:
         for required_count, code in FAVORITE_ACHIEVEMENTS:
             if favorites_count >= required_count:
+                await _unlock_achievement_if_needed(conn, user_id, code)
+        for required_count, code in CUSTOM_POINT_ACHIEVEMENTS:
+            if custom_points_count >= required_count:
                 await _unlock_achievement_if_needed(conn, user_id, code)
         await _unlock_achievement_if_needed(conn, user_id, "profile_opened")
     return level
@@ -271,19 +330,39 @@ async def get_gamification_state(user_id: int) -> GamificationMeOut:
                 """,
                 user_id,
             )
-            user_type = await conn.fetchval(
+            user_row = await conn.fetchrow(
                 """
-                SELECT user_type
+                SELECT username, avatar_path, user_type
                 FROM users
                 WHERE id = $1
                 """,
                 user_id,
             )
+            username = str(user_row["username"] or "") if user_row else ""
+            avatar_path = user_row["avatar_path"] if user_row else None
+            user_type = str(user_row["user_type"] or "user") if user_row else "user"
             favorites_count = await conn.fetchval(
                 """
                 SELECT COUNT(*)
                 FROM users_favorite_poi
                 WHERE users_id = $1
+                """,
+                user_id,
+            )
+            custom_points_count = await conn.fetchval(
+                """
+                SELECT COUNT(*)
+                FROM poi
+                WHERE created_by_users_id = $1
+                """,
+                user_id,
+            )
+            ar_visits_count = await conn.fetchval(
+                """
+                SELECT COUNT(*)
+                FROM users_visited_poi vp
+                JOIN poi p ON p.id = vp.poi_id
+                WHERE vp.users_id = $1 AND p.ar_enabled = true
                 """,
                 user_id,
             )
@@ -306,11 +385,15 @@ async def get_gamification_state(user_id: int) -> GamificationMeOut:
             synced_level = await _sync_progress_rewards(
                 conn,
                 user_id,
-                str(user_type or "user"),
+                user_type,
+                username,
+                avatar_path,
                 int(progress["xp"]),
                 int(progress["routes_built"]),
                 int(progress["new_places_visited"]),
                 int(favorites_count or 0),
+                int(custom_points_count or 0),
+                int(ar_visits_count or 0),
                 int(tours_created or 0),
                 int(tours_published or 0),
             )
