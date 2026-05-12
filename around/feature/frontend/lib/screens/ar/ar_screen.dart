@@ -380,14 +380,15 @@ class _ScanStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = target?.title ?? (isRu ? 'AR-объект не найден' : 'No AR object found');
-    final subtitle = target == null
+    final scanTarget = target;
+    final title = scanTarget?.title ?? (isRu ? 'AR-объект не найден' : 'No AR object found');
+    final subtitle = scanTarget == null
         ? (isRu
             ? 'Рядом нет достопримечательности с AR-моделью.'
             : 'There is no nearby landmark with an AR model.')
         : tooFar
-            ? target.tooFarLabel(isRu)
-            : target.distanceLabel(isRu);
+            ? scanTarget.tooFarLabel(isRu)
+            : scanTarget.distanceLabel(isRu);
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -470,8 +471,8 @@ class _BottomInfo extends StatelessWidget {
     final title = isRu ? 'Краткое описание' : 'Short description';
     final description = target?.description ??
         (isRu
-            ? 'AR-данные для ближайшего объекта не найдены. Добавьте AR-поля в Supabase для нужной достопримечательности.'
-            : 'AR data for the nearest object was not found. Add AR fields in Supabase for the target landmark.');
+            ? 'AR-данные для ближайшего объекта не найдены.'
+            : 'AR data for the nearest object was not found.');
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -526,8 +527,8 @@ class _NoArObjectHint extends StatelessWidget {
       icon: Icons.search_off,
       title: isRu ? 'AR-объект не найден' : 'No AR object',
       subtitle: isRu
-          ? 'В Supabase пока нет ближайшего POI с включенным AR.'
-          : 'There is no nearby POI with AR enabled in Supabase.',
+          ? 'В базе данных пока нет ближайшей достопримечательности.'
+          : 'In the database there is no nearby landmark yet.',
     );
   }
 }

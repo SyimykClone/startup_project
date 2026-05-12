@@ -47,6 +47,13 @@ class AuthService {
     api.setToken(token);
   }
 
+  Future<void> resetPassword(String email, String newPassword) async {
+    await api.dio.post('/api/auth/reset-password', data: {
+      "email": email,
+      "new_password": newPassword,
+    });
+  }
+
   Future<Map<String, dynamic>> fetchMe() async {
     final res = await api.dio.get('/api/auth/me');
     return (res.data as Map).cast<String, dynamic>();
