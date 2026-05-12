@@ -2,7 +2,14 @@ import re
 import secrets
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Header, File, Form, UploadFile, Request
-from app.models.auth import RegisterIn, LoginIn, GoogleAuthIn, AuthOut, AuthMeOut
+from app.models.auth import (
+    RegisterIn,
+    LoginIn,
+    PasswordResetIn,
+    GoogleAuthIn,
+    AuthOut,
+    AuthMeOut,
+)
 from app.services.user_repo import (
     get_user_by_email,
     get_user_by_username,
@@ -10,6 +17,7 @@ from app.services.user_repo import (
     get_user_by_id,
     is_username_taken_by_other,
     update_user_profile,
+    update_user_password_by_email,
 )
 from app.services.auth_service import create_session, delete_session
 from app.services.google_auth import verify_google_id_token, GoogleAuthError
@@ -44,6 +52,13 @@ async def login(data: LoginIn):
 
     token = await create_session(user_id=user["id"])
     return AuthOut(access_token=token)
+
+
+@router.post("/reset-password")
+async def reset_password(data: PasswordResetIn):
+    email = data.email.strip().lower()
+    await update_user_password_by_email(email, hash_password(data.new_password))
+    return {"ok": True}
 
 @router.post("/logout")
 async def logout(authorization: str | None = Header(default=None)):
