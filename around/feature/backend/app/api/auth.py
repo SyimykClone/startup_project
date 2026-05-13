@@ -95,6 +95,7 @@ async def update_me(
     request: Request,
     user_id: int = Depends(require_auth),
     username: str | None = Form(default=None),
+    current_password: str | None = Form(default=None),
     password: str | None = Form(default=None),
     avatar: UploadFile | None = File(default=None),
 ):
@@ -120,6 +121,11 @@ async def update_me(
         value = password.strip()
         if len(value) < 6:
             raise HTTPException(status_code=400, detail="Password must be at least 6 chars")
+        if not current_password or not verify_password(
+            current_password.strip(),
+            current["password_hash"],
+        ):
+            raise HTTPException(status_code=401, detail="Current password is incorrect")
         new_password_hash = hash_password(value)
 
     if avatar is not None:

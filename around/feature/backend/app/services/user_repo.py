@@ -42,7 +42,11 @@ async def get_user_by_id(user_id: int) -> Optional[dict]:
     pool = get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT id, username, email, avatar_path, user_type FROM users WHERE id=$1",
+            """
+            SELECT id, username, email, password_hash, avatar_path, user_type
+            FROM users
+            WHERE id=$1
+            """,
             user_id,
         )
     return dict(row) if row else None
