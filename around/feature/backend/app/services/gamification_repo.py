@@ -142,12 +142,38 @@ async def _unlock_achievement_if_needed(conn, user_id: int, code: str) -> None:
     await conn.execute(
         """
         INSERT INTO users_achievements (users_id, code)
-        VALUES ($1, $2)
-        ON CONFLICT (users_id, code) DO NOTHING
+        SELECT $1, $2
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM users_achievements
+          WHERE users_id = $1 AND code = $2
+        )
         """,
         user_id,
         code,
     )
+
+
+async def _table_exists(conn, table_name: str) -> bool:
+    exists = await conn.fetchval("SELECT to_regclass($1) IS NOT NULL", f"public.{table_name}")
+    return bool(exists)
+
+
+async def _column_exists(conn, table_name: str, column_name: str) -> bool:
+    exists = await conn.fetchval(
+        """
+        SELECT EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = $1
+            AND column_name = $2
+        )
+        """,
+        table_name,
+        column_name,
+    )
+    return bool(exists)
 
 
 async def _add_xp_and_recalc_level(conn, user_id: int, delta_xp: int) -> None:
@@ -322,6 +348,10 @@ async def get_gamification_state(user_id: int) -> GamificationMeOut:
     async with pool.acquire() as conn:
         async with conn.transaction():
             await _ensure_progress(conn, user_id)
+            users_has_avatar = await _column_exists(conn, "users", "avatar_path")
+            users_has_type = await _column_exists(conn, "users", "user_type")
+            avatar_select = "avatar_path" if users_has_avatar else "NULL AS avatar_path"
+            type_select = "user_type" if users_has_type else "'user' AS user_type"
             progress = await conn.fetchrow(
                 """
                 SELECT level, xp, routes_built, new_places_visited
@@ -331,8 +361,8 @@ async def get_gamification_state(user_id: int) -> GamificationMeOut:
                 user_id,
             )
             user_row = await conn.fetchrow(
-                """
-                SELECT username, avatar_path, user_type
+                f"""
+                SELECT username, {avatar_select}, {type_select}
                 FROM users
                 WHERE id = $1
                 """,
@@ -341,47 +371,67 @@ async def get_gamification_state(user_id: int) -> GamificationMeOut:
             username = str(user_row["username"] or "") if user_row else ""
             avatar_path = user_row["avatar_path"] if user_row else None
             user_type = str(user_row["user_type"] or "user") if user_row else "user"
-            favorites_count = await conn.fetchval(
-                """
-                SELECT COUNT(*)
-                FROM users_favorite_poi
-                WHERE users_id = $1
-                """,
-                user_id,
-            )
-            custom_points_count = await conn.fetchval(
-                """
-                SELECT COUNT(*)
-                FROM poi
-                WHERE created_by_users_id = $1
-                """,
-                user_id,
-            )
-            ar_visits_count = await conn.fetchval(
-                """
-                SELECT COUNT(*)
-                FROM users_visited_poi vp
-                JOIN poi p ON p.id = vp.poi_id
-                WHERE vp.users_id = $1 AND p.ar_enabled = true
-                """,
-                user_id,
-            )
-            tours_created = await conn.fetchval(
-                """
-                SELECT COUNT(*)
-                FROM tours
-                WHERE business_user_id = $1
-                """,
-                user_id,
-            )
-            tours_published = await conn.fetchval(
-                """
-                SELECT COUNT(*)
-                FROM tours
-                WHERE business_user_id = $1 AND is_published = true
-                """,
-                user_id,
-            )
+            favorites_count = 0
+            if await _table_exists(conn, "users_favorite_poi"):
+                favorites_count = await conn.fetchval(
+                    """
+                    SELECT COUNT(*)
+                    FROM users_favorite_poi
+                    WHERE users_id = $1
+                    """,
+                    user_id,
+                )
+
+            custom_points_count = 0
+            poi_exists = await _table_exists(conn, "poi")
+            if poi_exists and await _column_exists(conn, "poi", "created_by_users_id"):
+                custom_points_count = await conn.fetchval(
+                    """
+                    SELECT COUNT(*)
+                    FROM poi
+                    WHERE created_by_users_id = $1
+                    """,
+                    user_id,
+                )
+
+            ar_visits_count = 0
+            if (
+                poi_exists
+                and await _table_exists(conn, "users_visited_poi")
+                and await _column_exists(conn, "poi", "ar_enabled")
+            ):
+                ar_visits_count = await conn.fetchval(
+                    """
+                    SELECT COUNT(*)
+                    FROM users_visited_poi vp
+                    JOIN poi p ON p.id = vp.poi_id
+                    WHERE vp.users_id = $1 AND p.ar_enabled = true
+                    """,
+                    user_id,
+                )
+
+            tours_created = 0
+            tours_published = 0
+            tours_exists = await _table_exists(conn, "tours")
+            tours_has_owner = await _column_exists(conn, "tours", "business_user_id")
+            if tours_exists and tours_has_owner:
+                tours_created = await conn.fetchval(
+                    """
+                    SELECT COUNT(*)
+                    FROM tours
+                    WHERE business_user_id = $1
+                    """,
+                    user_id,
+                )
+                if await _column_exists(conn, "tours", "is_published"):
+                    tours_published = await conn.fetchval(
+                        """
+                        SELECT COUNT(*)
+                        FROM tours
+                        WHERE business_user_id = $1 AND is_published = true
+                        """,
+                        user_id,
+                    )
             synced_level = await _sync_progress_rewards(
                 conn,
                 user_id,
