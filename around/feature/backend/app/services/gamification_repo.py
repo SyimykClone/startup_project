@@ -1,3 +1,5 @@
+from asyncpg.exceptions import CheckViolationError
+
 from app.core.db import get_pool
 from app.models.gamification import AchievementOut, GamificationMeOut
 
@@ -143,19 +145,23 @@ async def _ensure_progress(conn, user_id: int) -> None:
 
 
 async def _unlock_achievement_if_needed(conn, user_id: int, code: str) -> None:
-    await conn.execute(
-        """
-        INSERT INTO users_achievements (users_id, code)
-        SELECT $1, $2
-        WHERE NOT EXISTS (
-          SELECT 1
-          FROM users_achievements
-          WHERE users_id = $1 AND code = $2
-        )
-        """,
-        user_id,
-        code,
-    )
+    try:
+        async with conn.transaction():
+            await conn.execute(
+                """
+                INSERT INTO users_achievements (users_id, code)
+                SELECT $1, $2
+                WHERE NOT EXISTS (
+                  SELECT 1
+                  FROM users_achievements
+                  WHERE users_id = $1 AND code = $2
+                )
+                """,
+                user_id,
+                code,
+            )
+    except CheckViolationError:
+        pass
 
 
 async def _table_exists(conn, table_name: str) -> bool:
