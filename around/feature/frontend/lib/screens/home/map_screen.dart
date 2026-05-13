@@ -65,6 +65,9 @@ class _MapScreenState extends State<MapScreen> {
   Set<Marker> _markers = <Marker>{};
   Set<Polyline> _polylines = <Polyline>{};
   Timer? _routeAnimationTimer;
+  Timer? _routeRefreshTimer;
+  bool _routeRefreshInFlight = false;
+  LatLng? _lastRouteRefreshPos;
   List<RouteHistoryItem> _routeHistory = [];
   bool _historyLoading = false;
   List<Poi> _googlePlaces = [];
@@ -122,6 +125,12 @@ class _MapScreenState extends State<MapScreen> {
   String _routeTimeTitle() => _isRu ? 'Время' : 'Time';
 
   String _routeModeTitle() => _isRu ? 'Тип' : 'Mode';
+
+  String _routeCancelText() => _isRu ? 'Отменить' : 'Cancel';
+
+  String _routeFinishText() => _isRu ? 'Завершить' : 'Finish';
+
+  String _routeNearTitle() => _isRu ? 'Вы рядом с местом' : 'You are nearby';
 
   String _nearbyTypeText(String type) {
     switch (type) {
@@ -281,6 +290,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void dispose() {
     _routeAnimationTimer?.cancel();
+    _routeRefreshTimer?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -750,7 +760,13 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  Future<void> _buildAndDrawRoute(int index) async {
+  Future<void> _buildAndDrawRoute(
+    int index, {
+    bool silent = false,
+    bool saveHistory = true,
+    bool markVisited = false,
+    bool animate = true,
+  }) async {
     final routeState = context.read<RouteState>();
     if (_userPos == null) {
       try {
@@ -772,7 +788,7 @@ class _MapScreenState extends State<MapScreen> {
       routeState.fail(context.l10n.selectTravelModeFirst);
       return;
     }
-    routeState.start();
+    if (!silent) routeState.start();
 
     try {
       final req = RouteRequest(
@@ -786,7 +802,7 @@ class _MapScreenState extends State<MapScreen> {
 
       final resp = await _routeService.buildRoute(req);
       routeState.setRoute(resp);
-      if (destination.poi.id > 0) {
+      if (markVisited && destination.poi.id > 0) {
         await _poiService.markVisited(destination.poi.id);
       }
 
@@ -796,8 +812,10 @@ class _MapScreenState extends State<MapScreen> {
         _activeDestination = index;
         _selectedPoi = destination.poi;
       });
-      _drawRoute(resp);
-      _loadRouteHistory();
+      _drawRoute(resp, animate: animate);
+      _lastRouteRefreshPos = _userPos;
+      _startRouteAutoRefresh();
+      if (saveHistory) _loadRouteHistory();
     } catch (e) {
       var msg = e.toString();
       if (e is DioException) {
@@ -812,11 +830,13 @@ class _MapScreenState extends State<MapScreen> {
           msg = context.l10n.requestFailed(e.response!.statusCode!);
         }
       }
-      routeState.fail(msg);
+      if (!silent) {
+        routeState.fail(msg);
+      }
     }
   }
 
-  void _drawRoute(RouteResponse resp) {
+  void _drawRoute(RouteResponse resp, {bool animate = true}) {
     _routeAnimationTimer?.cancel();
     final coords = (resp.geometry['coordinates'] as List)
         .map((c) => c as List)
@@ -825,6 +845,20 @@ class _MapScreenState extends State<MapScreen> {
 
     if (coords.length < 2) {
       setState(() => _polylines = <Polyline>{});
+      return;
+    }
+
+    if (!animate) {
+      setState(() {
+        _polylines = {
+          Polyline(
+            polylineId: const PolylineId('route'),
+            points: coords,
+            width: 5,
+            color: _base,
+          ),
+        };
+      });
       return;
     }
 
@@ -869,6 +903,120 @@ class _MapScreenState extends State<MapScreen> {
           timer.cancel();
         }
       },
+    );
+  }
+
+  double? _distanceToActiveDestination() {
+    final activeIndex = _activeDestination;
+    final userPos = _userPos;
+    if (activeIndex == null ||
+        activeIndex >= _destinations.length ||
+        userPos == null) {
+      return null;
+    }
+    final poi = _destinations[activeIndex].poi;
+    return Geolocator.distanceBetween(
+      userPos.latitude,
+      userPos.longitude,
+      poi.latitude,
+      poi.longitude,
+    );
+  }
+
+  void _startRouteAutoRefresh() {
+    _routeRefreshTimer?.cancel();
+    _routeRefreshTimer = Timer.periodic(const Duration(seconds: 18), (_) {
+      _refreshActiveRouteFromCurrentPosition();
+    });
+  }
+
+  Future<void> _refreshActiveRouteFromCurrentPosition() async {
+    final activeIndex = _activeDestination;
+    if (_routeRefreshInFlight ||
+        activeIndex == null ||
+        activeIndex >= _destinations.length) {
+      return;
+    }
+
+    _routeRefreshInFlight = true;
+    try {
+      final pos = await _location.getCurrentPosition();
+      final newPos = LatLng(pos.latitude, pos.longitude);
+      final lastPos = _lastRouteRefreshPos;
+      if (mounted) setState(() => _userPos = newPos);
+
+      final distanceToTarget = _distanceToActiveDestination();
+      if (distanceToTarget != null && distanceToTarget <= 70) {
+        return;
+      }
+
+      if (lastPos != null) {
+        final moved = Geolocator.distanceBetween(
+          lastPos.latitude,
+          lastPos.longitude,
+          newPos.latitude,
+          newPos.longitude,
+        );
+        if (moved < 25) return;
+      }
+
+      await _buildAndDrawRoute(
+        activeIndex,
+        silent: true,
+        saveHistory: false,
+        markVisited: false,
+        animate: false,
+      );
+    } catch (_) {
+    } finally {
+      _routeRefreshInFlight = false;
+    }
+  }
+
+  void _cancelActiveRoute() {
+    _routeRefreshTimer?.cancel();
+    _routeAnimationTimer?.cancel();
+    context.read<RouteState>().clear();
+    setState(() {
+      _polylines = <Polyline>{};
+      _activeDestination = null;
+      _lastRouteRefreshPos = null;
+    });
+  }
+
+  Future<void> _finishActiveRoute() async {
+    final activeIndex = _activeDestination;
+    if (activeIndex == null || activeIndex >= _destinations.length) return;
+
+    final distanceToTarget = _distanceToActiveDestination();
+    if (distanceToTarget == null || distanceToTarget > 90) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isRu
+                ? 'Завершить маршрут можно рядом с объектом.'
+                : 'You can finish the route near the destination.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final poi = _destinations[activeIndex].poi;
+    if (poi.id > 0) {
+      try {
+        await _poiService.markVisited(poi.id);
+      } catch (_) {
+      }
+    }
+    _cancelActiveRoute();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _isRu ? 'Маршрут завершён' : 'Route completed',
+        ),
+      ),
     );
   }
 
@@ -1075,14 +1223,24 @@ class _MapScreenState extends State<MapScreen> {
       return const SizedBox.shrink();
     }
 
+    final remaining = _distanceToActiveDestination();
+    final isNear = remaining != null && remaining <= 90;
+
     return _RouteSummaryCard(
-      title: _routeReadyTitle(),
+      title: isNear ? _routeNearTitle() : _routeReadyTitle(),
       distanceLabel: _routeDistanceTitle(),
       timeLabel: _routeTimeTitle(),
       modeLabel: _routeModeTitle(),
       distance: _formatDistance(distance),
       duration: _formatDuration(duration),
       mode: _modeText(mode),
+      finishText: _routeFinishText(),
+      cancelText: _routeCancelText(),
+      canFinish: isNear,
+      onFinish: () {
+        _finishActiveRoute();
+      },
+      onCancel: _cancelActiveRoute,
     );
   }
 
@@ -1101,6 +1259,7 @@ class _MapScreenState extends State<MapScreen> {
         _activeDestination! < _destinations.length &&
         _destinations[_activeDestination!].distanceM != null &&
         _selectedPoi?.id == _destinations[_activeDestination!].poi.id;
+    final routeActive = showRouteSummaryGap;
 
     return SafeArea(
       child: Column(
@@ -1155,6 +1314,7 @@ class _MapScreenState extends State<MapScreen> {
                   routeLoading: routeState.loading,
                   selectedPoi: _selectedPoi,
                   isFavorite: isFavorite,
+                  routeActive: routeActive,
                   routeSummary: _buildRouteSummaryCard(),
                   showRouteSummaryGap: showRouteSummaryGap,
                   routeError: routeState.error,

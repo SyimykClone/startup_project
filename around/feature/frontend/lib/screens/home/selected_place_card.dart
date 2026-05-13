@@ -6,6 +6,7 @@ class _SelectedPoiCard extends StatelessWidget {
     required this.routeLoading,
     required this.selectedPoi,
     required this.isFavorite,
+    required this.routeActive,
     required this.routeSummary,
     required this.showRouteSummaryGap,
     required this.routeError,
@@ -20,6 +21,7 @@ class _SelectedPoiCard extends StatelessWidget {
   final bool routeLoading;
   final Poi? selectedPoi;
   final bool isFavorite;
+  final bool routeActive;
   final Widget routeSummary;
   final bool showRouteSummaryGap;
   final String? routeError;
@@ -139,41 +141,43 @@ class _SelectedPoiCard extends StatelessWidget {
             if (poi != null) ...[
               const SizedBox(height: 10),
               routeSummary,
-              if (showRouteSummaryGap) const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => onFocus(poi),
-                      icon: const Icon(Icons.my_location_outlined, size: 18),
-                      label: Text(context.l10n.openOnMap),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: onDirections,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: _MapScreenState._accent,
-                        foregroundColor: _MapScreenState._base,
+              if (!routeActive) ...[
+                if (showRouteSummaryGap) const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => onFocus(poi),
+                        icon: const Icon(Icons.my_location_outlined, size: 18),
+                        label: Text(context.l10n.openOnMap),
                       ),
-                      icon: const Icon(Icons.route, size: 18),
-                      label: Text(context.l10n.directions),
                     ),
-                  ),
-                  IconButton(
-                    onPressed: poi.id <= 0 ? null : onToggleFavorite,
-                    icon: Icon(
-                      isFavorite
-                          ? Icons.favorite
-                          : Icons.favorite_border_outlined,
-                      color: isFavorite
-                          ? _MapScreenState._accent
-                          : _MapScreenState._base,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: onDirections,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: _MapScreenState._accent,
+                          foregroundColor: _MapScreenState._base,
+                        ),
+                        icon: const Icon(Icons.route, size: 18),
+                        label: Text(context.l10n.directions),
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                    IconButton(
+                      onPressed: poi.id <= 0 ? null : onToggleFavorite,
+                      icon: Icon(
+                        isFavorite
+                            ? Icons.favorite
+                            : Icons.favorite_border_outlined,
+                        color: isFavorite
+                            ? _MapScreenState._accent
+                            : _MapScreenState._base,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
             if (routeError != null) ...[
               const SizedBox(height: 8),

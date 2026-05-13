@@ -9,6 +9,11 @@ class _RouteSummaryCard extends StatelessWidget {
     required this.distance,
     required this.duration,
     required this.mode,
+    required this.finishText,
+    required this.cancelText,
+    required this.canFinish,
+    required this.onFinish,
+    required this.onCancel,
   });
 
   final String title;
@@ -18,6 +23,11 @@ class _RouteSummaryCard extends StatelessWidget {
   final String distance;
   final String duration;
   final String mode;
+  final String finishText;
+  final String cancelText;
+  final bool canFinish;
+  final VoidCallback onFinish;
+  final VoidCallback onCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -61,6 +71,36 @@ class _RouteSummaryCard extends StatelessWidget {
               ),
               Expanded(
                 child: _RouteMetric(label: modeLabel, value: mode),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onCancel,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: BorderSide(color: Colors.white.withOpacity(0.42)),
+                  ),
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  label: Text(cancelText),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: canFinish ? onFinish : null,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _MapScreenState._accent,
+                    foregroundColor: _MapScreenState._base,
+                    disabledBackgroundColor: Colors.white.withOpacity(0.16),
+                    disabledForegroundColor: Colors.white.withOpacity(0.46),
+                  ),
+                  icon: const Icon(Icons.flag_rounded, size: 18),
+                  label: Text(finishText),
+                ),
               ),
             ],
           ),
