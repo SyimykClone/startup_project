@@ -18,12 +18,12 @@ XP_ROUTE_BUILT = 8
 XP_NEW_PLACE = 22
 
 COMMON_ACHIEVEMENTS = {
-    "app_started": "App started",
-    "profile_customized": "Profile customized",
-    "map_started": "Map started",
-    "favorite_started": "Favorite started",
-    "ar_object_found": "AR object found",
-    "custom_point_created": "Custom point created",
+    "app_started": "First launch",
+    "profile_customized": "Profile tuned",
+    "map_started": "Map opened",
+    "favorite_started": "First saved place",
+    "ar_object_found": "AR discovery",
+    "custom_point_created": "Own place added",
     "all_rounder": "All-round explorer",
     "xp_100": "100 XP",
     "xp_500": "500 XP",
@@ -40,8 +40,8 @@ COMMON_ACHIEVEMENTS = {
 }
 
 USER_ACHIEVEMENTS = {
-    "profile_opened": "Profile explored",
-    "first_route": "First route",
+    "profile_opened": "Traveler profile",
+    "first_route": "First route built",
     "five_routes": "5 routes",
     "ten_routes": "10 routes",
     "twenty_five_routes": "25 routes",
@@ -58,8 +58,8 @@ USER_ACHIEVEMENTS = {
 }
 
 BUSINESS_ACHIEVEMENTS = {
-    "business_profile_opened": "Business profile explored",
-    "first_tour_created": "First tour created",
+    "business_profile_opened": "Business profile",
+    "first_tour_created": "First tour draft",
     "three_tours_created": "3 tours created",
     "five_tours_created": "5 tours created",
     "first_draft_tour": "First draft tour",
