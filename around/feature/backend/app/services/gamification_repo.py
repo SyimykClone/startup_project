@@ -131,8 +131,12 @@ async def _ensure_progress(conn, user_id: int) -> None:
     await conn.execute(
         """
         INSERT INTO users_gamification_progress (users_id)
-        VALUES ($1)
-        ON CONFLICT (users_id) DO NOTHING
+        SELECT $1
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM users_gamification_progress
+          WHERE users_id = $1
+        )
         """,
         user_id,
     )
