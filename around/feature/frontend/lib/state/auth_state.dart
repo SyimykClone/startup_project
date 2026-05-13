@@ -199,6 +199,7 @@ class AuthState extends ChangeNotifier {
 
   Future<bool> updateProfile({
     String? username,
+    String? currentPassword,
     String? password,
     String? avatarFilePath,
   }) async {
@@ -208,6 +209,7 @@ class AuthState extends ChangeNotifier {
     try {
       final me = await _auth.updateMe(
         username: username,
+        currentPassword: currentPassword,
         password: password,
         avatarFilePath: avatarFilePath,
       );

@@ -38,55 +38,72 @@ class _AppShellScreenState extends State<AppShellScreen> {
   Widget build(BuildContext context) {
     const accent = Color(0xFFFAA916);
     const base = Color(0xFF151E3F);
+    const shellBlue = Color(0xFF071C36);
+    const innerSurface = Color(0xFFF4F6FC);
     final l10n = context.l10n;
 
     return Scaffold(
-      body: IndexedStack(
-        index: _index,
-        children: [
-          FavoritesScreen(refreshTick: _favoritesRefreshTick),
-          const ArScreen(),
-          MapScreen(initialPoi: widget.initialPoi),
-          ToursScreen(refreshTick: _toursRefreshTick),
-          ProfileScreen(refreshTick: _profileRefreshTick),
-        ],
+      backgroundColor: shellBlue,
+      body: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+          child: ClipRRect(
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(28),
+            ),
+            child: ColoredBox(
+              color: innerSurface,
+              child: IndexedStack(
+                index: _index,
+                children: [
+                  FavoritesScreen(refreshTick: _favoritesRefreshTick),
+                  const ArScreen(),
+                  MapScreen(initialPoi: widget.initialPoi),
+                  ToursScreen(refreshTick: _toursRefreshTick),
+                  ProfileScreen(refreshTick: _profileRefreshTick),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
       bottomNavigationBar: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+        padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(24),
             boxShadow: const [
               BoxShadow(
-                color: Color(0x25151E3F),
-                blurRadius: 16,
-                offset: Offset(0, 8),
+                color: Color(0x66000000),
+                blurRadius: 22,
+                offset: Offset(0, 12),
               ),
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(24),
             child: NavigationBarTheme(
               data: NavigationBarThemeData(
                 height: 64,
-                backgroundColor: Colors.white,
+                backgroundColor: shellBlue,
                 iconTheme: WidgetStateProperty.resolveWith((states) {
                   final selected = states.contains(WidgetState.selected);
                   return IconThemeData(
-                    color: selected ? base : base.withOpacity(0.6),
+                    color: selected ? accent : Colors.white.withOpacity(0.72),
                   );
                 }),
                 labelTextStyle: WidgetStateProperty.resolveWith((states) {
                   final selected = states.contains(WidgetState.selected);
                   return TextStyle(
-                    color: selected ? base : base.withOpacity(0.62),
+                    color: selected ? accent : Colors.white.withOpacity(0.72),
                     fontSize: 11,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
                   );
                 }),
-                indicatorColor: accent.withOpacity(0.33),
+                indicatorColor: Colors.white.withOpacity(0.08),
                 indicatorShape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(16),
                 ),
               ),
               child: NavigationBar(

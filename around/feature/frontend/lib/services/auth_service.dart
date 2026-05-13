@@ -61,6 +61,7 @@ class AuthService {
 
   Future<Map<String, dynamic>> updateMe({
     String? username,
+    String? currentPassword,
     String? password,
     String? avatarFilePath,
   }) async {
@@ -69,6 +70,9 @@ class AuthService {
       form.fields.add(MapEntry("username", username.trim()));
     }
     if (password != null && password.trim().isNotEmpty) {
+      if (currentPassword != null && currentPassword.trim().isNotEmpty) {
+        form.fields.add(MapEntry("current_password", currentPassword.trim()));
+      }
       form.fields.add(MapEntry("password", password.trim()));
     }
     if (avatarFilePath != null && avatarFilePath.isNotEmpty) {
