@@ -1077,202 +1077,235 @@ class _TourEditorSheetState extends State<_TourEditorSheet> {
     final l10n = context.l10n;
     final bottom = MediaQuery.of(context).viewInsets.bottom;
     final isEditing = widget.tour != null;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16, 4, 16, 16 + bottom),
-      child: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: ToursScreen.base,
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: ToursScreen.accent,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Icon(
-                        Icons.travel_explore_outlined,
-                        color: ToursScreen.base,
-                      ),
+    return Container(
+      color: ToursScreen.base,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(16, 8, 16, 16 + bottom),
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: ToursScreen.base,
+                      borderRadius: BorderRadius.circular(24),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: ToursScreen.accent,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Icon(
+                            Icons.travel_explore_outlined,
+                            color: ToursScreen.base,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                isEditing ? l10n.editTour : l10n.createTour,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _isRu
+                                    ? 'Соберите понятное предложение: маршрут, цена, темп и публикация.'
+                                    : 'Build a clear tour: route, price, pace and publishing.',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.72),
+                                  height: 1.25,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _EditorGroup(
+                    icon: Icons.badge_outlined,
+                    title: _isRu ? 'Карточка тура' : 'Tour card',
+                    subtitle: _isRu
+                        ? 'Название и описание должны быстро объяснить ценность маршрута.'
+                        : 'Title and description should quickly explain the route value.',
+                    children: [
+                      TextFormField(
+                        controller: _title,
+                        textInputAction: TextInputAction.next,
+                        decoration: InputDecoration(
+                          labelText: l10n.tourTitle,
+                          floatingLabelStyle: const TextStyle(fontSize: 12),
+                          hintText: _isRu
+                              ? 'Например: Исторический Токмок'
+                              : 'Example: Historic Tokmok',
+                          prefixIcon: const Icon(Icons.flag_outlined),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 18,
+                          ),
+                        ),
+                        validator: (value) {
+                          if ((value ?? '').trim().length < 3) {
+                            return l10n.checkFormData;
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: _description,
+                        minLines: 3,
+                        maxLines: 5,
+                        decoration: InputDecoration(
+                          labelText: l10n.tourDescription,
+                          floatingLabelStyle: const TextStyle(fontSize: 12),
+                          hintText: _isRu
+                              ? 'Что входит, какие места увидит человек, кому подойдет тур'
+                              : 'Briefly: what is included, places and target audience',
+                          prefixIcon: const Icon(Icons.notes_outlined),
+                          alignLabelWithHint: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 18,
+                          ),
+                        ),
+                        validator: (value) {
+                          if ((value ?? '').trim().length < 3) {
+                            return l10n.checkFormData;
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _EditorGroup(
+                    icon: Icons.route_outlined,
+                    title: _isRu ? 'Маршрут и условия' : 'Route and terms',
+                    subtitle: _isRu
+                        ? 'Эти данные помогают оценить время, бюджет и нагрузку.'
+                        : 'These details help users estimate time, budget and effort.',
+                    children: [
+                      Row(
                         children: [
-                          Text(
-                            isEditing ? l10n.editTour : l10n.createTour,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.w900,
+                          Expanded(
+                            child: _NumberField(
+                              controller: _duration,
+                              label: _isRu ? 'Дни' : 'Days',
+                              icon: Icons.calendar_today_outlined,
+                              integerOnly: true,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _isRu
-                                ? 'Соберите понятный тур: маршрут, цена, темп и публикация.'
-                                : 'Build a clear tour: route, price, pace and publishing.',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.72),
-                              height: 1.25,
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _NumberField(
+                              controller: _price,
+                              label: _isRu ? 'Цена' : 'Price',
+                              icon: Icons.payments_outlined,
+                              suffix: _isRu ? 'сом' : 'som',
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              _EditorGroup(
-                icon: Icons.badge_outlined,
-                title: _isRu ? 'Витрина тура' : 'Tour storefront',
-                subtitle: _isRu
-                    ? 'Название и описание должны быстро объяснять, что получит путешественник.'
-                    : 'The title and description should quickly explain the traveler value.',
-                children: [
-                  TextFormField(
-                    controller: _title,
-                    textInputAction: TextInputAction.next,
-                    decoration: InputDecoration(
-                      labelText: l10n.tourTitle,
-                      floatingLabelStyle: const TextStyle(fontSize: 12),
-                      hintText: _isRu
-                          ? 'Напр.: Тур по Токмоку'
-                          : 'Example: Tokmok tour',
-                      prefixIcon: const Icon(Icons.flag_outlined),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 18,
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _NumberField(
+                              controller: _distance,
+                              label: _isRu ? 'Дистанция' : 'Distance',
+                              icon: Icons.straighten_outlined,
+                              suffix: l10n.kmUnit,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _NumberField(
+                              controller: _stops,
+                              label: _isRu ? 'Остановки' : 'Stops',
+                              icon: Icons.place_outlined,
+                              integerOnly: true,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    validator: (value) {
-                      if ((value ?? '').trim().length < 3) return l10n.checkFormData;
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    controller: _description,
-                    minLines: 3,
-                    maxLines: 5,
-                    decoration: InputDecoration(
-                      labelText: l10n.tourDescription,
-                      floatingLabelStyle: const TextStyle(fontSize: 12),
-                      hintText: _isRu
-                          ? 'Коротко: что входит, какие места, кому подойдет'
-                          : 'Briefly: what is included, places and target audience',
-                      prefixIcon: const Icon(Icons.notes_outlined),
-                      alignLabelWithHint: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 18,
+                      const SizedBox(height: 14),
+                      _DifficultySelector(
+                        value: _difficulty,
+                        onChanged: (value) =>
+                            setState(() => _difficulty = value),
                       ),
-                    ),
-                    validator: (value) {
-                      if ((value ?? '').trim().length < 3) return l10n.checkFormData;
-                      return null;
-                    },
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              _EditorGroup(
-                icon: Icons.route_outlined,
-                title: _isRu ? 'Маршрут и условия' : 'Route and terms',
-                subtitle: _isRu
-                    ? 'Эти данные помогают пользователю оценить время, бюджет и нагрузку.'
-                    : 'These details help users estimate time, budget and effort.',
-                children: [
+                  const SizedBox(height: 12),
+                  _TourDraftPreview(
+                    title: _title,
+                    price: _price,
+                    duration: _duration,
+                    stops: _stops,
+                    difficulty: _difficulty,
+                  ),
+                  const SizedBox(height: 12),
+                  _PublishCard(
+                    value: _published,
+                    onChanged: (value) => setState(() => _published = value),
+                  ),
+                  const SizedBox(height: 16),
                   Row(
                     children: [
                       Expanded(
-                        child: _NumberField(
-                          controller: _duration,
-                          label: _isRu ? 'Дни' : 'Days',
-                          icon: Icons.calendar_today_outlined,
-                          integerOnly: true,
+                        child: OutlinedButton.icon(
+                          onPressed: () => Navigator.pop(context),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: ToursScreen.base,
+                            side: BorderSide(
+                              color: ToursScreen.base.withOpacity(0.28),
+                            ),
+                          ),
+                          icon: const Icon(Icons.close_rounded),
+                          label: Text(l10n.cancel),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: _NumberField(
-                          controller: _price,
-                          label: _isRu ? 'Цена, сом' : 'Price, som',
-                          icon: Icons.payments_outlined,
-                          suffix: _isRu ? 'сом' : 'som',
+                        child: FilledButton.icon(
+                          onPressed: _save,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: ToursScreen.accent,
+                            foregroundColor: ToursScreen.base,
+                          ),
+                          icon: const Icon(Icons.check_rounded),
+                          label: Text(l10n.save),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _NumberField(
-                          controller: _distance,
-                          label: _isRu ? 'Км' : 'Km',
-                          icon: Icons.straighten_outlined,
-                          suffix: l10n.kmUnit,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _NumberField(
-                          controller: _stops,
-                          label: _isRu ? 'Остановки' : 'Stops',
-                          icon: Icons.place_outlined,
-                          integerOnly: true,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  _DifficultySelector(
-                    value: _difficulty,
-                    onChanged: (value) => setState(() => _difficulty = value),
-                  ),
                 ],
               ),
-              const SizedBox(height: 12),
-              _PublishCard(
-                value: _published,
-                onChanged: (value) => setState(() => _published = value),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close_rounded),
-                      label: Text(l10n.cancel),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: _save,
-                      icon: const Icon(Icons.check_rounded),
-                      label: Text(l10n.save),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1467,6 +1500,164 @@ class _PublishCard extends StatelessWidget {
             ),
           ),
           Switch.adaptive(value: value, onChanged: onChanged),
+        ],
+      ),
+    );
+  }
+}
+
+class _TourDraftPreview extends StatelessWidget {
+  const _TourDraftPreview({
+    required this.title,
+    required this.price,
+    required this.duration,
+    required this.stops,
+    required this.difficulty,
+  });
+
+  final TextEditingController title;
+  final TextEditingController price;
+  final TextEditingController duration;
+  final TextEditingController stops;
+  final String difficulty;
+
+  @override
+  Widget build(BuildContext context) {
+    final isRu = Localizations.localeOf(context).languageCode == 'ru';
+    return AnimatedBuilder(
+      animation: Listenable.merge([title, price, duration, stops]),
+      builder: (context, _) {
+        final titleText = title.text.trim().isEmpty
+            ? (isRu ? 'Название тура' : 'Tour title')
+            : title.text.trim();
+        final priceText = price.text.trim().isEmpty
+            ? (isRu ? 'Цена' : 'Price')
+            : '${price.text.trim()} ${isRu ? 'сом' : 'som'}';
+        final durationText = duration.text.trim().isEmpty
+            ? (isRu ? 'Дни' : 'Days')
+            : '${duration.text.trim()} ${context.l10n.daysUnit}';
+        final stopsText = stops.text.trim().isEmpty
+            ? (isRu ? 'Остановки' : 'Stops')
+            : '${stops.text.trim()} ${context.l10n.stopsUnit}';
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: ToursScreen.base,
+            borderRadius: BorderRadius.circular(22),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: ToursScreen.accent,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(
+                      Icons.card_travel_outlined,
+                      color: ToursScreen.base,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isRu ? 'Предпросмотр тура' : 'Tour preview',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.62),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          titleText,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 17,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _PreviewChip(icon: Icons.payments_outlined, text: priceText),
+                  _PreviewChip(
+                    icon: Icons.calendar_today_outlined,
+                    text: durationText,
+                  ),
+                  _PreviewChip(icon: Icons.place_outlined, text: stopsText),
+                  _PreviewChip(
+                    icon: Icons.speed_outlined,
+                    text: _difficultyText(context, difficulty),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _difficultyText(BuildContext context, String value) {
+    final l10n = context.l10n;
+    switch (value) {
+      case 'medium':
+        return l10n.difficultyMedium;
+      case 'hard':
+        return l10n.difficultyHard;
+      default:
+        return l10n.difficultyEasy;
+    }
+  }
+}
+
+class _PreviewChip extends StatelessWidget {
+  const _PreviewChip({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: Colors.white.withOpacity(0.12)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: ToursScreen.accent),
+          const SizedBox(width: 5),
+          Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+            ),
+          ),
         ],
       ),
     );

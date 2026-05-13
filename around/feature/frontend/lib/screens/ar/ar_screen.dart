@@ -78,7 +78,7 @@ class _ArScreenState extends State<ArScreen> {
       if (!mounted) return;
       setState(() => _loading = false);
       final message = isRu
-          ? 'Не удалось запустить AR-сканирование: $e'
+          ? 'Не удалось запустить AR-сканирование. Проверьте камеру и геолокацию.'
           : 'Failed to start AR scan: $e';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }
@@ -267,15 +267,21 @@ class _EmptyScanState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.camera_outlined,
-              color: _ArScreenState._base,
-              size: 46,
+            const _ScannerPreviewFrame(),
+            const SizedBox(height: 18),
+            Text(
+              isRu ? 'Наведите камеру на объект' : 'Point camera at object',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: _ArScreenState._base,
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+              ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Text(
               isRu
-                  ? 'Нажмите кнопку выше, чтобы открыть камеру и начать сканирование.'
+                  ? 'Нажмите кнопку выше, разрешите доступ к камере и начните сканирование.'
                   : 'Tap the button above to open camera and start scanning.',
               textAlign: TextAlign.center,
               style: TextStyle(color: _ArScreenState._base.withOpacity(0.7)),
@@ -285,6 +291,95 @@ class _EmptyScanState extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ScannerPreviewFrame extends StatelessWidget {
+  const _ScannerPreviewFrame();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 210,
+      height: 210,
+      decoration: BoxDecoration(
+        color: _ArScreenState._base,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: _ArScreenState._base.withOpacity(0.18),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned.fill(child: CustomPaint(painter: _ScanGridPainter())),
+          const Center(
+            child: Icon(
+              Icons.center_focus_strong_rounded,
+              color: _ArScreenState._accent,
+              size: 64,
+            ),
+          ),
+          const Positioned(left: 18, top: 18, child: _ScanCorner()),
+          const Positioned(
+            right: 18,
+            top: 18,
+            child: RotatedBox(quarterTurns: 1, child: _ScanCorner()),
+          ),
+          const Positioned(
+            right: 18,
+            bottom: 18,
+            child: RotatedBox(quarterTurns: 2, child: _ScanCorner()),
+          ),
+          const Positioned(
+            left: 18,
+            bottom: 18,
+            child: RotatedBox(quarterTurns: 3, child: _ScanCorner()),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScanCorner extends StatelessWidget {
+  const _ScanCorner();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      width: 34,
+      height: 34,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(color: _ArScreenState._accent, width: 4),
+            left: BorderSide(color: _ArScreenState._accent, width: 4),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ScanGridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withOpacity(0.08)
+      ..strokeWidth = 1;
+    for (var i = 1; i < 4; i++) {
+      final dx = size.width * i / 4;
+      final dy = size.height * i / 4;
+      canvas.drawLine(Offset(dx, 0), Offset(dx, size.height), paint);
+      canvas.drawLine(Offset(0, dy), Offset(size.width, dy), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _ArScanResult extends StatelessWidget {

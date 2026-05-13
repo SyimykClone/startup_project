@@ -48,11 +48,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   String _fallbackUsername() => _isRu ? 'Путешественник' : 'Traveler';
 
-  String _roleLabel(AuthState auth) {
-    if (auth.isBusiness) return _isRu ? 'Бизнес-профиль' : 'Business profile';
-    return _isRu ? 'Обычный пользователь' : 'Regular user';
-  }
-
   String _rankTitle(int level) {
     if (level >= 10) return _isRu ? 'Мастер маршрутов' : 'Route master';
     if (level >= 8) return _isRu ? 'Гид маршрутов' : 'Route guide';
@@ -237,8 +232,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 5),
                     Text(
                       progress == null
-                          ? _roleLabel(auth)
-                          : '${_rankTitle(progress.level)} · ${_roleLabel(auth)}',
+                          ? (_isRu ? 'Профиль путешественника' : 'Traveler profile')
+                          : _rankTitle(progress.level),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -326,6 +321,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final p = _progress!;
     final percent = (p.xpProgressPercent / 100).clamp(0.0, 1.0);
     final unlocked = p.achievements.where((a) => a.unlocked).length;
+    final unlockedAchievements = p.achievements.where((a) => a.unlocked).toList();
+    final lockedAchievements = p.achievements.where((a) => !a.unlocked).toList();
 
     return _ProfileSection(
       title: context.l10n.gamificationTitle,
@@ -336,52 +333,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _rankTitle(p.level),
-                  style: const TextStyle(
-                    color: base,
-                    fontSize: 19,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-              Text(
-                '${p.xp} XP',
-                style: const TextStyle(
-                  color: accent,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: percent,
-              minHeight: 12,
-              backgroundColor: soft,
-              valueColor: const AlwaysStoppedAnimation<Color>(accent),
-            ),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            _xpProgressText(p),
-            style: TextStyle(
-              color: base.withOpacity(0.64),
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
+          _GameProgressCard(
+            level: p.level,
+            xp: p.xp,
+            progress: percent,
+            rankTitle: _rankTitle(p.level),
+            progressText: _xpProgressText(p),
+            unlockedCount: unlocked,
+            totalCount: p.achievements.length,
           ),
           const SizedBox(height: 14),
+          Text(
+            _isRu ? 'Открытые достижения' : 'Unlocked achievements',
+            style: const TextStyle(
+              color: base,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: p.achievements
+            children: unlockedAchievements
                 .map(
                   (a) => _AchievementChip(
                     title: _achievementTitle(context, a.code, a.title),
@@ -390,6 +363,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 )
                 .toList(),
           ),
+          if (lockedAchievements.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Text(
+              _isRu ? 'Следующие цели' : 'Next goals',
+              style: TextStyle(
+                color: base.withOpacity(0.72),
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: lockedAchievements
+                  .take(10)
+                  .map(
+                    (a) => _AchievementChip(
+                      title: _achievementTitle(context, a.code, a.title),
+                      unlocked: a.unlocked,
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
         ],
       ),
     );
@@ -506,6 +503,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _achievementTitle(BuildContext context, String code, String fallback) {
     final isRu = Localizations.localeOf(context).languageCode == 'ru';
     switch (code) {
+      case 'app_started':
+        return isRu ? 'Первый запуск' : 'First launch';
+      case 'profile_customized':
+        return isRu ? 'Профиль оформлен' : 'Profile customized';
+      case 'map_started':
+        return isRu ? 'Карта освоена' : 'Map started';
+      case 'favorite_started':
+        return isRu ? 'Первое сохранение' : 'First save';
+      case 'ar_object_found':
+        return isRu ? 'AR-объект найден' : 'AR object found';
+      case 'custom_point_created':
+        return isRu ? 'Своя точка создана' : 'Custom point created';
+      case 'all_rounder':
+        return isRu ? 'Исследователь ARound' : 'ARound explorer';
       case 'first_route':
         return context.l10n.achievementFirstRoute;
       case 'five_routes':
@@ -526,8 +537,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return isRu ? '25 новых мест' : '25 new places';
       case 'xp_500':
         return isRu ? '500 XP опыта' : '500 XP earned';
+      case 'xp_100':
+        return isRu ? '100 XP опыта' : '100 XP earned';
+      case 'xp_750':
+        return isRu ? '750 XP опыта' : '750 XP earned';
       case 'xp_1500':
         return isRu ? '1500 XP опыта' : '1500 XP earned';
+      case 'xp_2500':
+        return isRu ? '2500 XP опыта' : '2500 XP earned';
       case 'xp_3500':
         return isRu ? '3500 XP опыта' : '3500 XP earned';
       case 'profile_opened':
@@ -538,18 +555,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return isRu ? 'Первое избранное' : 'First favorite';
       case 'five_favorites':
         return isRu ? '5 мест в избранном' : '5 favorites';
+      case 'ten_favorites':
+        return isRu ? '10 мест в избранном' : '10 favorites';
+      case 'first_custom_point':
+        return isRu ? 'Своя точка на карте' : 'Custom map point';
+      case 'three_custom_points':
+        return isRu ? '3 свои точки' : '3 custom points';
       case 'first_tour_created':
         return isRu ? 'Первый тур создан' : 'First tour created';
       case 'three_tours_created':
         return isRu ? '3 тура создано' : '3 tours created';
+      case 'five_tours_created':
+        return isRu ? '5 туров создано' : '5 tours created';
+      case 'first_draft_tour':
+        return isRu ? 'Первый черновик тура' : 'First tour draft';
       case 'first_tour_published':
         return isRu ? 'Первый тур опубликован' : 'First tour published';
       case 'three_tours_published':
         return isRu ? '3 тура опубликовано' : '3 tours published';
+      case 'five_tours_published':
+        return isRu ? '5 туров опубликовано' : '5 tours published';
+      case 'level_2':
+        return isRu ? 'Уровень 2' : 'Level 2';
       case 'level_3':
         return isRu ? 'Уровень 3' : 'Level 3';
       case 'level_5':
         return isRu ? 'Уровень 5' : 'Level 5';
+      case 'level_7':
+        return isRu ? 'Уровень 7' : 'Level 7';
       case 'level_8':
         return isRu ? 'Уровень 8' : 'Level 8';
       case 'level_10':
@@ -694,6 +727,249 @@ class _ProfilePill extends StatelessWidget {
   }
 }
 
+class _GameProgressCard extends StatelessWidget {
+  const _GameProgressCard({
+    required this.level,
+    required this.xp,
+    required this.progress,
+    required this.rankTitle,
+    required this.progressText,
+    required this.unlockedCount,
+    required this.totalCount,
+  });
+
+  final int level;
+  final int xp;
+  final double progress;
+  final String rankTitle;
+  final String progressText;
+  final int unlockedCount;
+  final int totalCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final isRu = Localizations.localeOf(context).languageCode == 'ru';
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF151E3F), Color(0xFF263A73)],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: _ProfileScreenState.base.withOpacity(0.16),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -18,
+            top: -26,
+            child: Icon(
+              Icons.auto_awesome,
+              size: 112,
+              color: Colors.white.withOpacity(0.08),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _ProfileScreenState.accent,
+                      border: Border.all(color: Colors.white, width: 3),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          '$level',
+                          style: const TextStyle(
+                            color: _ProfileScreenState.base,
+                            fontSize: 26,
+                            fontWeight: FontWeight.w900,
+                            height: 1,
+                          ),
+                        ),
+                        Text(
+                          isRu ? 'ур.' : 'lvl',
+                          style: const TextStyle(
+                            color: _ProfileScreenState.base,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          rankTitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _GameMiniPill(
+                              icon: Icons.bolt,
+                              text: '$xp XP',
+                            ),
+                            _GameMiniPill(
+                              icon: Icons.emoji_events_outlined,
+                              text: '$unlockedCount/$totalCount',
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _GameXpBar(value: progress),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      progressText,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.72),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '${(progress * 100).round()}%',
+                    style: const TextStyle(
+                      color: _ProfileScreenState.accent,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GameMiniPill extends StatelessWidget {
+  const _GameMiniPill({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.11),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: _ProfileScreenState.accent, size: 15),
+          const SizedBox(width: 5),
+          Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GameXpBar extends StatelessWidget {
+  const _GameXpBar({required this.value});
+
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth * value.clamp(0.0, 1.0);
+        return Container(
+          height: 16,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: Colors.white.withOpacity(0.12)),
+          ),
+          child: Stack(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 350),
+                width: width,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFFD36B), _ProfileScreenState.accent],
+                  ),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              Positioned.fill(
+                child: Row(
+                  children: List.generate(
+                    10,
+                    (_) => Expanded(
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 2),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            right: BorderSide(
+                              color: Colors.white.withOpacity(0.12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _AchievementChip extends StatelessWidget {
   const _AchievementChip({
     required this.title,
@@ -706,24 +982,39 @@ class _AchievementChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: unlocked ? const Color(0xFFFFF3D9) : const Color(0xFFF2F3F8),
-        borderRadius: BorderRadius.circular(999),
+        color: unlocked ? const Color(0xFFFFF7E4) : const Color(0xFFF2F3F8),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: unlocked
+              ? _ProfileScreenState.accent.withOpacity(0.55)
+              : _ProfileScreenState.base.withOpacity(0.08),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            unlocked ? Icons.emoji_events : Icons.lock_outline,
-            color: unlocked
-                ? _ProfileScreenState.accent
-                : _ProfileScreenState.base.withOpacity(0.48),
-            size: 15,
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: unlocked
+                  ? _ProfileScreenState.accent
+                  : _ProfileScreenState.base.withOpacity(0.08),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              unlocked ? Icons.star_rounded : Icons.lock_outline,
+              color: unlocked
+                  ? _ProfileScreenState.base
+                  : _ProfileScreenState.base.withOpacity(0.48),
+              size: 15,
+            ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 7),
           ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 180),
+            constraints: const BoxConstraints(maxWidth: 170),
             child: Text(
               title,
               maxLines: 1,

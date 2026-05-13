@@ -242,6 +242,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     const base = Color(0xFF151E3F);
+    const outerBlue = Color(0xFF071C36);
     final l10n = context.l10n;
     final helpTooltip = Localizations.localeOf(context).languageCode == 'ru'
         ? 'Подсказка'
@@ -262,17 +263,18 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     return Scaffold(
+      backgroundColor: outerBlue,
       appBar: AppBar(title: Text(l10n.signIn)),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFF8E8), Color(0xFFF7F8FC)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF0B2A4D), outerBlue],
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(18),
           child: Form(
             key: _formKey,
             autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -286,12 +288,33 @@ class _LoginScreenState extends State<LoginScreen> {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: base.withOpacity(0.1)),
+                        borderRadius: BorderRadius.circular(28),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x33000000),
+                            blurRadius: 26,
+                            offset: Offset(0, 16),
+                          ),
+                        ],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          Center(
+                            child: Container(
+                              width: 58,
+                              height: 58,
+                              decoration: BoxDecoration(
+                                color: base,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Icon(
+                                Icons.login_rounded,
+                                color: Color(0xFFFAA916),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
                           Text(
                             l10n.loginWelcomeBack,
                             style: TextStyle(

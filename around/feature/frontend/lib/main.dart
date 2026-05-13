@@ -58,7 +58,8 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     const accent = Color(0xFFFAA916);
     const base = Color(0xFF151E3F);
-    const surface = Color(0xFFF7F8FC);
+    const surface = Color(0xFFF4F6FC);
+    const outerBlue = Color(0xFF071C36);
     final locale = context.watch<LocaleState>().locale;
 
     return MaterialApp(
@@ -86,14 +87,14 @@ class MyApp extends StatelessWidget {
               onSurface: base,
               surface: surface,
             ),
-        scaffoldBackgroundColor: surface,
+        scaffoldBackgroundColor: outerBlue,
         appBarTheme: const AppBarTheme(
-          backgroundColor: surface,
-          foregroundColor: base,
+          backgroundColor: outerBlue,
+          foregroundColor: Colors.white,
           elevation: 0,
           centerTitle: false,
           titleTextStyle: TextStyle(
-            color: base,
+            color: Colors.white,
             fontSize: 22,
             fontWeight: FontWeight.w700,
           ),
