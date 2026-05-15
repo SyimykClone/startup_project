@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../core/i18n/l10n.dart';
 import '../../core/router/app_router.dart';
 import '../../state/auth_state.dart';
+import '../../utils/app_error_text.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -204,7 +205,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (auth.error != null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(auth.error!)));
+      ).showSnackBar(
+        SnackBar(content: Text(AppErrorText.fromMessage(context, auth.error!))),
+      );
     }
   }
 

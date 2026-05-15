@@ -208,8 +208,8 @@ class PoiService {
   Future<List<Poi>> resolveTapWith2Gis({
     required double lat,
     required double lng,
-    int radiusM = 80,
-    String locale = 'ru_RU',
+    int radiusM = 120,
+    String locale = 'ru_KG',
   }) async {
     if (useMock) return [];
 
@@ -230,14 +230,41 @@ class PoiService {
           return Poi.fromJson({
             'id': -json['id'].toString().hashCode.abs(),
             'name': json['name'],
-            'description': json['address'] ?? json['category'] ?? '',
+            'description':
+                json['description'] ?? json['address'] ?? json['category'] ?? '',
             'lat': json['lat'],
             'lng': json['lng'],
             'category': 'twogis_place',
             'address': json['address'],
+            'rating': json['rating'],
+            'photo_url': json['photo_url'],
           });
         })
         .toList();
+  }
+
+  Future<Poi> fetch2GisPlaceDetails({
+    required String placeId,
+    String locale = 'ru_KG',
+  }) async {
+    if (useMock) throw StateError('2GIS details are unavailable in mock mode');
+
+    final res = await api.dio.get(
+      '/api/2gis/places/$placeId',
+      queryParameters: {'locale': locale},
+    );
+    final json = (res.data as Map).cast<String, dynamic>();
+    return Poi.fromJson({
+      'id': -placeId.hashCode.abs(),
+      'name': json['name'],
+      'description': json['description'] ?? json['address'] ?? '',
+      'lat': json['lat'],
+      'lng': json['lng'],
+      'category': 'twogis_place',
+      'address': json['address'],
+      'rating': json['rating'],
+      'photo_url': json['photo_url'],
+    });
   }
 
   Future<List<Poi>> searchGooglePlaces({

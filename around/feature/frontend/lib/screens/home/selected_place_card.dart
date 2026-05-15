@@ -132,6 +132,21 @@ class _SelectedPoiCard extends StatelessWidget {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
+                        if (poi.description.trim().isNotEmpty &&
+                            poi.description.trim() !=
+                                (poi.address ?? '').trim()) ...[
+                          const SizedBox(height: 5),
+                          Text(
+                            poi.description,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: _MapScreenState._base.withOpacity(0.7),
+                              fontSize: 12,
+                              height: 1.25,
+                            ),
+                          ),
+                        ],
                       ],
                     ],
                   ),
@@ -182,7 +197,7 @@ class _SelectedPoiCard extends StatelessWidget {
             if (routeError != null) ...[
               const SizedBox(height: 8),
               Text(
-                '${context.l10n.errorLabel}: $routeError',
+                '${context.l10n.errorLabel}: ${AppErrorText.fromMessage(context, routeError!)}',
                 style: const TextStyle(
                   color: Colors.red,
                   fontWeight: FontWeight.w600,

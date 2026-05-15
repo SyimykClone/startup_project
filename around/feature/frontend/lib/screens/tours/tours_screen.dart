@@ -8,6 +8,7 @@ import '../../core/router/app_router.dart';
 import '../../models/tour.dart';
 import '../../services/tour_service.dart';
 import '../../state/auth_state.dart';
+import '../../utils/app_error_text.dart';
 
 class ToursScreen extends StatefulWidget {
   const ToursScreen({super.key, required this.refreshTick});
@@ -86,7 +87,7 @@ class _ToursScreenState extends State<ToursScreen> {
       setState(() => _tours = data);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.toString());
+      setState(() => _error = AppErrorText.fromObject(context, e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -133,7 +134,7 @@ class _ToursScreenState extends State<ToursScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.loadError(e.toString()))),
+        SnackBar(content: Text(AppErrorText.fromObject(context, e))),
       );
     }
   }
@@ -170,7 +171,7 @@ class _ToursScreenState extends State<ToursScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.deleteFailed(e.toString()))),
+        SnackBar(content: Text(AppErrorText.fromObject(context, e))),
       );
     }
   }

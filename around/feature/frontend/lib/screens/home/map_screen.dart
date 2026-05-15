@@ -17,6 +17,7 @@ import '../../services/poi_service.dart';
 import '../../services/route_service.dart';
 import '../../state/poi_state.dart';
 import '../../state/route_state.dart';
+import '../../utils/app_error_text.dart';
 
 part 'map_search_bar.dart';
 part 'nearby_filters_sheet.dart';
@@ -237,28 +238,13 @@ class _MapScreenState extends State<MapScreen> {
   String _requestErrorMessage(Object error) {
     if (error is DioException) {
       final statusCode = error.response?.statusCode;
-      final data = error.response?.data;
-      if (data is Map && data['detail'] != null) {
-        return data['detail'].toString();
-      }
       if (statusCode == 404) {
         return _isRu
             ? 'Сервер ещё не поддерживает этот запрос. Обновите backend-деплой и попробуйте снова.'
             : 'The server does not support this request yet. Update backend deployment and try again.';
       }
-      if (statusCode != null) {
-        return context.l10n.requestFailed(statusCode);
-      }
-      if (error.type == DioExceptionType.connectionError) {
-        return _isRu
-            ? 'Не удалось подключиться к серверу. Проверьте интернет и API URL.'
-            : 'Could not connect to the server. Check internet and API URL.';
-      }
-      if (error.message != null && error.message!.isNotEmpty) {
-        return error.message!;
-      }
     }
-    return error.toString();
+    return AppErrorText.fromObject(context, error);
   }
 
   List<Poi> _filteredPoi(List<Poi> list) {
@@ -343,7 +329,7 @@ class _MapScreenState extends State<MapScreen> {
       poiState.setPoi(list);
       _applyMapFilters();
     } catch (e) {
-      poiState.setError(e.toString());
+      poiState.setError(AppErrorText.fromObject(context, e));
     } finally {
       poiState.setLoading(false);
     }
@@ -526,8 +512,8 @@ class _MapScreenState extends State<MapScreen> {
       final twoGisCandidates = await _poiService.resolveTapWith2Gis(
         lat: position.latitude,
         lng: position.longitude,
-        radiusM: 80,
-        locale: locale == 'ru' ? 'ru_RU' : 'en_US',
+        radiusM: 120,
+        locale: locale == 'ru' ? 'ru_KG' : 'en_RU',
       );
       selectedPoi = twoGisCandidates.isNotEmpty
           ? twoGisCandidates.first
@@ -817,19 +803,7 @@ class _MapScreenState extends State<MapScreen> {
       _startRouteAutoRefresh();
       if (saveHistory) _loadRouteHistory();
     } catch (e) {
-      var msg = e.toString();
-      if (e is DioException) {
-        final data = e.response?.data;
-        if (data is Map && data['detail'] != null) {
-          msg = data['detail'].toString();
-        } else if (data is String && data.isNotEmpty) {
-          msg = data;
-        } else if (e.message != null && e.message!.isNotEmpty) {
-          msg = e.message!;
-        } else if (e.response?.statusCode != null) {
-          msg = context.l10n.requestFailed(e.response!.statusCode!);
-        }
-      }
+      final msg = AppErrorText.fromObject(context, e);
       if (!silent) {
         routeState.fail(msg);
       }
@@ -1099,7 +1073,7 @@ class _MapScreenState extends State<MapScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(
-        SnackBar(content: Text(context.l10n.favoriteActionFailed(e.toString()))),
+        SnackBar(content: Text(AppErrorText.fromObject(context, e))),
       );
     }
   }
