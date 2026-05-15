@@ -8,6 +8,7 @@ import '../../core/router/app_router.dart';
 import '../../models/poi.dart';
 import '../../services/poi_service.dart';
 import '../../state/auth_state.dart';
+import '../../utils/app_error_text.dart';
 
 class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({super.key, required this.refreshTick});
@@ -64,7 +65,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       setState(() => _favorites = data);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.toString());
+      setState(() => _error = AppErrorText.fromObject(context, e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -99,7 +100,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.removeFailed(e.toString()))),
+        SnackBar(content: Text(AppErrorText.fromObject(context, e))),
       );
     }
   }

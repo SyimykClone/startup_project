@@ -5,6 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../../core/i18n/l10n.dart';
 import '../../core/router/app_router.dart';
 import '../../state/auth_state.dart';
+import '../../utils/app_error_text.dart';
 import '../../widgets/error_banner.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -101,7 +102,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showMaterialBanner(
         ErrorBanner.build(
           context,
-          message: context.l10n.googleSignInFailed(e.toString()),
+          message: AppErrorText.fromObject(context, e),
         ),
       );
     } finally {

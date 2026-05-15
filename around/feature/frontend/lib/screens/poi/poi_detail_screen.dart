@@ -5,6 +5,7 @@ import '../../core/i18n/l10n.dart';
 import '../../models/poi.dart';
 import '../../state/route_state.dart';
 import '../../core/router/app_router.dart';
+import '../../utils/app_error_text.dart';
 
 class PoiDetailScreen extends StatelessWidget {
   final Poi poi;
@@ -36,7 +37,10 @@ class PoiDetailScreen extends StatelessWidget {
               const SizedBox(height: 24),
               if (routeState.loading) const LinearProgressIndicator(),
               if (routeState.error != null)
-                Text('$routeErrorLabel: ${routeState.error}'),
+                Text(
+                  '$routeErrorLabel: '
+                  '${AppErrorText.fromMessage(context, routeState.error!)}',
+                ),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,

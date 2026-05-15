@@ -13,6 +13,7 @@ import '../../services/poi_service.dart';
 import '../../services/route_service.dart';
 import '../../state/auth_state.dart';
 import '../../state/locale_state.dart';
+import '../../utils/app_error_text.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key, required this.refreshTick});
@@ -105,7 +106,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() => _progress = data);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _progressError = e.toString());
+      setState(() => _progressError = AppErrorText.fromObject(context, e));
     } finally {
       if (mounted) setState(() => _loadingProgress = false);
     }
@@ -122,7 +123,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() => _visited = data);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _visitedError = e.toString());
+      setState(() => _visitedError = AppErrorText.fromObject(context, e));
     } finally {
       if (mounted) setState(() => _loadingVisited = false);
     }
@@ -139,7 +140,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() => _routeHistory = data);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _routesError = e.toString());
+      setState(() => _routesError = AppErrorText.fromObject(context, e));
     } finally {
       if (mounted) setState(() => _loadingRoutes = false);
     }
