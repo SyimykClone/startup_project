@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List
-from app.models.poi import CustomPoiFromCoordinatesIn, Poi
+from app.models.poi import ArPoiNearby, CustomPoiFromCoordinatesIn, Poi
 from app.services.poi_repo import (
     add_favorite_poi,
     create_custom_poi_from_coordinates,
     get_accessible_poi,
+    get_nearest_ar_poi,
     list_favorite_poi,
     list_poi,
     list_visited_poi,
@@ -53,6 +54,23 @@ async def favorites_remove(poi_id: int, user_id: int = Depends(require_auth)):
 @router.get("/visited", response_model=List[Poi])
 async def visited_list(user_id: int = Depends(require_auth)):
     return await list_visited_poi(user_id)
+
+
+@router.get("/ar/nearby", response_model=ArPoiNearby)
+async def ar_nearby(
+    lat: float = Query(..., ge=-90, le=90),
+    lng: float = Query(..., ge=-180, le=180),
+    max_distance_m: int = Query(default=1000, ge=10, le=5000),
+    _user_id: int = Depends(require_auth),
+):
+    poi = await get_nearest_ar_poi(
+        lat=lat,
+        lng=lng,
+        max_distance_m=max_distance_m,
+    )
+    if not poi:
+        raise HTTPException(status_code=404, detail="AR object not found nearby")
+    return poi
 
 
 @router.post("/visited/{poi_id}", status_code=204)
