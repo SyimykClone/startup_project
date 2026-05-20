@@ -6,6 +6,7 @@ from app.services.twogis_service import (
     categories_list,
     categories_search,
     geocode,
+    place_by_id,
     places_search,
     public_transport,
     resolve_tap,
@@ -44,6 +45,22 @@ async def twogis_places_search(
             locale=locale,
             page_size=page_size,
         )
+    except Exception as e:
+        raise _handle_twogis_error(e)
+
+
+@router.get("/places/{place_id}")
+async def twogis_place_details(
+    place_id: str,
+    locale: str = Query(default="ru_KG", min_length=2, max_length=8),
+):
+    try:
+        item = await place_by_id(place_id=place_id, locale=locale)
+        if item is None:
+            raise HTTPException(status_code=404, detail="2GIS place not found")
+        return item
+    except HTTPException:
+        raise
     except Exception as e:
         raise _handle_twogis_error(e)
 
