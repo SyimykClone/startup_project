@@ -369,6 +369,32 @@ class PoiService {
     await api.dio.post('/api/poi/visited/$poiId');
   }
 
+  Future<Poi?> fetchNearbyArPoi({
+    required double lat,
+    required double lng,
+    int maxDistanceM = 1000,
+  }) async {
+    if (useMock) {
+      final arPoi = mockPoiList.where((poi) => poi.arEnabled).toList();
+      return arPoi.isEmpty ? null : arPoi.first;
+    }
+
+    try {
+      final res = await api.dio.get(
+        '/api/poi/ar/nearby',
+        queryParameters: {
+          'lat': lat,
+          'lng': lng,
+          'max_distance_m': maxDistanceM,
+        },
+      );
+      return Poi.fromJson((res.data as Map).cast<String, dynamic>());
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
   Future<Poi> createCustomPoiFromCoordinates({
     required double lat,
     required double lng,

@@ -74,7 +74,6 @@ async def get_nearest_ar_poi(
             WHERE ar_enabled = true
               AND ar_model_asset IS NOT NULL
               AND trim(ar_model_asset) <> ''
-              AND source = 'seed'
             """
         )
     if not rows:
