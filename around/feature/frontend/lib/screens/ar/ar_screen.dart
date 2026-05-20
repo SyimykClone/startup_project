@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -45,9 +45,45 @@ class _ArScreenState extends State<ArScreen> {
     try {
       final pos = await _location.getCurrentPosition();
       final target = await _findNearestArTarget(pos);
-      final modelAvailable = target == null
-          ? false
-          : await _hasModelAsset(target.modelAsset);
+      if (target == null) {
+        if (!mounted) return;
+        setState(() {
+          _capturedImage = null;
+          _position = pos;
+          _target = null;
+          _modelAvailable = false;
+          _tooFar = false;
+          _loading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isRu
+                  ? 'Р СЏРґРѕРј РЅРµС‚ AR-РѕР±СЉРµРєС‚Р°. РџСЂРѕРІРµСЂСЊС‚Рµ РєРѕРѕСЂРґРёРЅР°С‚С‹ РѕР±СЉРµРєС‚Р° РІ Р±Р°Р·Рµ.'
+                  : 'No AR object nearby. Check object coordinates in the database.',
+            ),
+          ),
+        );
+        return;
+      }
+
+      if (target.distanceM > target.radiusM) {
+        if (!mounted) return;
+        setState(() {
+          _capturedImage = null;
+          _position = pos;
+          _target = target;
+          _modelAvailable = false;
+          _tooFar = true;
+          _loading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(target.tooFarLabel(isRu))),
+        );
+        return;
+      }
+
+      final modelAvailable = await _hasModelAsset(target.modelAsset);
 
       final shot = await _picker.pickImage(
         source: ImageSource.camera,
@@ -61,7 +97,7 @@ class _ArScreenState extends State<ArScreen> {
         setState(() => _loading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(isRu ? 'Сканирование отменено.' : 'Scan canceled.'),
+            content: Text(isRu ? 'РЎРєР°РЅРёСЂРѕРІР°РЅРёРµ РѕС‚РјРµРЅРµРЅРѕ.' : 'Scan canceled.'),
           ),
         );
         return;
@@ -72,14 +108,14 @@ class _ArScreenState extends State<ArScreen> {
         _position = pos;
         _target = target;
         _modelAvailable = modelAvailable;
-        _tooFar = target != null && target.distanceM > target.radiusM;
+        _tooFar = target.distanceM > target.radiusM;
         _loading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
       final message = isRu
-          ? 'Не удалось запустить AR-сканирование. Проверьте камеру и геолокацию.'
+          ? 'РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РїСѓСЃС‚РёС‚СЊ AR-СЃРєР°РЅРёСЂРѕРІР°РЅРёРµ. РџСЂРѕРІРµСЂСЊС‚Рµ РєР°РјРµСЂСѓ Рё РіРµРѕР»РѕРєР°С†РёСЋ.'
           : AppErrorText.fromObject(context, e);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }
@@ -95,66 +131,16 @@ class _ArScreenState extends State<ArScreen> {
       useMock: cfg.useMock,
     );
 
-    final targets = <_ArScanTarget>[];
-
-    try {
-      final arPoi = (await poiService.fetchPoiList())
-          .where(
-            (poi) =>
-                poi.arEnabled &&
-                poi.arModelAsset != null &&
-                poi.arModelAsset!.trim().isNotEmpty,
-          )
-          .toList();
-      targets.addAll(
-        arPoi.map(
-          (poi) => _ArScanTarget.fromPoi(
-            poi: poi,
-            distanceM: _distanceTo(pos, poi),
-          ),
-        ),
-      );
-    } catch (_) {}
-
-    targets.addAll(_localArTargets(pos));
-    if (targets.isEmpty) return null;
-
-    targets.sort((a, b) => a.distanceM.compareTo(b.distanceM));
-    return targets.first;
-  }
-
-  List<_ArScanTarget> _localArTargets(Position pos) {
-    final isRu = _isRu;
-    return [
-      _ArScanTarget(
-        title: 'Ил-28',
-        description: isRu
-            ? 'Ил-28 — советский реактивный фронтовой бомбардировщик. В AR-режиме объект используется как интерактивная достопримечательность с 3D-моделью.'
-            : 'Il-28 is a Soviet jet front-line bomber. In AR mode it is shown as an interactive landmark with a 3D model.',
-        modelAsset: 'assets/ar_models/il28.glb',
-        distanceM: Geolocator.distanceBetween(
-          pos.latitude,
-          pos.longitude,
-          42.83562,
-          75.29171,
-        ),
-        radiusM: 220,
-      ),
-      _ArScanTarget(
-        title: isRu ? 'Башня Бурана' : 'Burana Tower',
-        description: isRu
-            ? 'Башня Бурана — исторический минарет рядом с Токмоком, часть древнего городища Баласагун.'
-            : 'Burana Tower is a historic minaret near Tokmok and part of the ancient Balasagun site.',
-        modelAsset: 'assets/ar_models/burana.glb',
-        distanceM: Geolocator.distanceBetween(
-          pos.latitude,
-          pos.longitude,
-          42.74632,
-          75.24996,
-        ),
-        radiusM: 260,
-      ),
-    ];
+    final poi = await poiService.fetchNearbyArPoi(
+      lat: pos.latitude,
+      lng: pos.longitude,
+      maxDistanceM: 1000,
+    );
+    if (poi == null) return null;
+    return _ArScanTarget.fromPoi(
+      poi: poi,
+      distanceM: poi.arDistanceM ?? _distanceTo(pos, poi),
+    );
   }
 
   double _distanceTo(Position pos, Poi poi) {
@@ -178,13 +164,13 @@ class _ArScreenState extends State<ArScreen> {
   @override
   Widget build(BuildContext context) {
     final isRu = _isRu;
-    final title = isRu ? 'AR-сканирование' : 'AR Scan';
+    final title = isRu ? 'AR-СЃРєР°РЅРёСЂРѕРІР°РЅРёРµ' : 'AR Scan';
     final subtitle = isRu
-        ? 'Подойдите к достопримечательности, наведите камеру и получите 3D-модель с описанием.'
+        ? 'РџРѕРґРѕР№РґРёС‚Рµ Рє РґРѕСЃС‚РѕРїСЂРёРјРµС‡Р°С‚РµР»СЊРЅРѕСЃС‚Рё, РЅР°РІРµРґРёС‚Рµ РєР°РјРµСЂСѓ Рё РїРѕР»СѓС‡РёС‚Рµ 3D-РјРѕРґРµР»СЊ СЃ РѕРїРёСЃР°РЅРёРµРј.'
         : 'Approach a landmark, scan it with camera, and view a 3D model.';
     final startLabel = _capturedImage == null
-        ? (isRu ? 'Сканировать объект' : 'Scan object')
-        : (isRu ? 'Сканировать снова' : 'Scan again');
+        ? (isRu ? 'РЎРєР°РЅРёСЂРѕРІР°С‚СЊ РѕР±СЉРµРєС‚' : 'Scan object')
+        : (isRu ? 'РЎРєР°РЅРёСЂРѕРІР°С‚СЊ СЃРЅРѕРІР°' : 'Scan again');
 
     return SafeArea(
       child: Padding(
@@ -315,7 +301,7 @@ class _EmptyScanState extends StatelessWidget {
             const _ScannerPreviewFrame(),
             const SizedBox(height: 18),
             Text(
-              isRu ? 'Наведите камеру на объект' : 'Point camera at object',
+              isRu ? 'РќР°РІРµРґРёС‚Рµ РєР°РјРµСЂСѓ РЅР° РѕР±СЉРµРєС‚' : 'Point camera at object',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: _ArScreenState._base,
@@ -326,7 +312,7 @@ class _EmptyScanState extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               isRu
-                  ? 'Нажмите кнопку выше, разрешите доступ к камере и начните сканирование.'
+                  ? 'РќР°Р¶РјРёС‚Рµ РєРЅРѕРїРєСѓ РІС‹С€Рµ, СЂР°Р·СЂРµС€РёС‚Рµ РґРѕСЃС‚СѓРї Рє РєР°РјРµСЂРµ Рё РЅР°С‡РЅРёС‚Рµ СЃРєР°РЅРёСЂРѕРІР°РЅРёРµ.'
                   : 'Tap the button above to open camera and start scanning.',
               textAlign: TextAlign.center,
               style: TextStyle(color: _ArScreenState._base.withOpacity(0.7)),
@@ -521,10 +507,10 @@ class _ScanStatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scanTarget = target;
-    final title = scanTarget?.title ?? (isRu ? 'AR-объект не найден' : 'No AR object found');
+    final title = scanTarget?.title ?? (isRu ? 'AR-РѕР±СЉРµРєС‚ РЅРµ РЅР°Р№РґРµРЅ' : 'No AR object found');
     final subtitle = scanTarget == null
         ? (isRu
-            ? 'Рядом нет достопримечательности с AR-моделью.'
+            ? 'Р СЏРґРѕРј РЅРµС‚ РґРѕСЃС‚РѕРїСЂРёРјРµС‡Р°С‚РµР»СЊРЅРѕСЃС‚Рё СЃ AR-РјРѕРґРµР»СЊСЋ.'
             : 'There is no nearby landmark with an AR model.')
         : tooFar
             ? scanTarget.tooFarLabel(isRu)
@@ -608,10 +594,10 @@ class _BottomInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = isRu ? 'Краткое описание' : 'Short description';
+    final title = isRu ? 'РљСЂР°С‚РєРѕРµ РѕРїРёСЃР°РЅРёРµ' : 'Short description';
     final description = target?.description ??
         (isRu
-            ? 'AR-данные для ближайшего объекта не найдены.'
+            ? 'AR-РґР°РЅРЅС‹Рµ РґР»СЏ Р±Р»РёР¶Р°Р№С€РµРіРѕ РѕР±СЉРµРєС‚Р° РЅРµ РЅР°Р№РґРµРЅС‹.'
             : 'AR data for the nearest object was not found.');
 
     return Container(
@@ -665,9 +651,9 @@ class _NoArObjectHint extends StatelessWidget {
   Widget build(BuildContext context) {
     return _CenteredHint(
       icon: Icons.search_off,
-      title: isRu ? 'AR-объект не найден' : 'No AR object',
+      title: isRu ? 'AR-РѕР±СЉРµРєС‚ РЅРµ РЅР°Р№РґРµРЅ' : 'No AR object',
       subtitle: isRu
-          ? 'В базе данных пока нет ближайшей достопримечательности.'
+          ? 'Р’ Р±Р°Р·Рµ РґР°РЅРЅС‹С… РїРѕРєР° РЅРµС‚ Р±Р»РёР¶Р°Р№С€РµР№ РґРѕСЃС‚РѕРїСЂРёРјРµС‡Р°С‚РµР»СЊРЅРѕСЃС‚Рё.'
           : 'In the database there is no nearby landmark yet.',
     );
   }
@@ -683,7 +669,7 @@ class _TooFarHint extends StatelessWidget {
   Widget build(BuildContext context) {
     return _CenteredHint(
       icon: Icons.social_distance,
-      title: isRu ? 'Подойдите ближе' : 'Move closer',
+      title: isRu ? 'РџРѕРґРѕР№РґРёС‚Рµ Р±Р»РёР¶Рµ' : 'Move closer',
       subtitle: target.tooFarLabel(isRu),
     );
   }
@@ -699,7 +685,7 @@ class _MissingModelHint extends StatelessWidget {
   Widget build(BuildContext context) {
     return _CenteredHint(
       icon: Icons.view_in_ar_outlined,
-      title: isRu ? '3D-модель не найдена' : '3D model not found',
+      title: isRu ? '3D-РјРѕРґРµР»СЊ РЅРµ РЅР°Р№РґРµРЅР°' : '3D model not found',
       subtitle: modelPath,
     );
   }
@@ -781,16 +767,16 @@ class _ArScanTarget {
   String distanceLabel(bool isRu) {
     if (distanceM >= 1000) {
       final km = (distanceM / 1000).toStringAsFixed(1);
-      return isRu ? 'Расстояние: $km км' : 'Distance: $km km';
+      return isRu ? 'Р Р°СЃСЃС‚РѕСЏРЅРёРµ: $km РєРј' : 'Distance: $km km';
     }
     return isRu
-        ? 'Расстояние: ${distanceM.toStringAsFixed(0)} м'
+        ? 'Р Р°СЃСЃС‚РѕСЏРЅРёРµ: ${distanceM.toStringAsFixed(0)} Рј'
         : 'Distance: ${distanceM.toStringAsFixed(0)} m';
   }
 
   String tooFarLabel(bool isRu) {
     return isRu
-        ? 'До объекта ${distanceM.toStringAsFixed(0)} м. Нужно подойти ближе ${radiusM} м.'
+        ? 'Р”Рѕ РѕР±СЉРµРєС‚Р° ${distanceM.toStringAsFixed(0)} Рј. РќСѓР¶РЅРѕ РїРѕРґРѕР№С‚Рё Р±Р»РёР¶Рµ ${radiusM} Рј.'
         : 'Object is ${distanceM.toStringAsFixed(0)} m away. Move within $radiusM m.';
   }
 }

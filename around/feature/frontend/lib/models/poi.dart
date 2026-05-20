@@ -15,6 +15,8 @@ class Poi {
   final String? arTitle;
   final String? arDescription;
   final int arRadiusM;
+  final double? arDistanceM;
+  final bool? arWithinRadius;
 
   Poi({
     required this.id,
@@ -33,6 +35,8 @@ class Poi {
     this.arTitle,
     this.arDescription,
     this.arRadiusM = 120,
+    this.arDistanceM,
+    this.arWithinRadius,
   });
 
   factory Poi.fromJson(Map<String, dynamic> json) {
@@ -53,6 +57,8 @@ class Poi {
       arTitle: json['ar_title'] as String?,
       arDescription: json['ar_description'] as String?,
       arRadiusM: (json['ar_radius_m'] as num?)?.toInt() ?? 120,
+      arDistanceM: (json['distance_m'] as num?)?.toDouble(),
+      arWithinRadius: json['within_radius'] as bool?,
     );
   }
 }
