@@ -103,13 +103,17 @@ class _SelectedPoiCard extends StatelessWidget {
                           spacing: 10,
                           runSpacing: 4,
                           children: [
-                            Text(
-                              distanceLabel(poi),
-                              style: TextStyle(
-                                color:
-                                    _MapScreenState._base.withOpacity(0.78),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 260),
+                              child: Text(
+                                distanceLabel(poi),
+                                key: ValueKey(distanceLabel(poi)),
+                                style: TextStyle(
+                                  color:
+                                      _MapScreenState._base.withOpacity(0.78),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
                             if (poi.rating != null)

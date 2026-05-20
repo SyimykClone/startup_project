@@ -67,6 +67,7 @@ class _MapScreenState extends State<MapScreen> {
   Set<Polyline> _polylines = <Polyline>{};
   Timer? _routeAnimationTimer;
   Timer? _routeRefreshTimer;
+  StreamSubscription<Position>? _positionSub;
   bool _routeRefreshInFlight = false;
   LatLng? _lastRouteRefreshPos;
   List<RouteHistoryItem> _routeHistory = [];
@@ -277,6 +278,7 @@ class _MapScreenState extends State<MapScreen> {
   void dispose() {
     _routeAnimationTimer?.cancel();
     _routeRefreshTimer?.cancel();
+    _positionSub?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -304,6 +306,7 @@ class _MapScreenState extends State<MapScreen> {
     _map = controller;
     try {
       await _loadUserLocation();
+      _startUserPositionTracking();
     } catch (e) {
       _showLocationProblem(e);
     }
@@ -317,6 +320,28 @@ class _MapScreenState extends State<MapScreen> {
     final pos = await _location.getCurrentPosition();
     _userPos = LatLng(pos.latitude, pos.longitude);
     await _map?.animateCamera(CameraUpdate.newLatLngZoom(_userPos!, 14));
+  }
+
+  void _startUserPositionTracking() {
+    _positionSub?.cancel();
+    _positionSub = _location.watchPosition().listen(
+      (pos) {
+        if (!mounted) return;
+        final nextPos = LatLng(pos.latitude, pos.longitude);
+        final prevPos = _userPos;
+        if (prevPos != null) {
+          final moved = Geolocator.distanceBetween(
+            prevPos.latitude,
+            prevPos.longitude,
+            nextPos.latitude,
+            nextPos.longitude,
+          );
+          if (moved < 1.5) return;
+        }
+        setState(() => _userPos = nextPos);
+      },
+      onError: (_) {},
+    );
   }
 
   Future<void> _loadPoiAndDrawMarkers() async {
@@ -1190,15 +1215,16 @@ class _MapScreenState extends State<MapScreen> {
       return const SizedBox.shrink();
     }
 
-    final distance = destination.distanceM;
+    final routeDistance = destination.distanceM;
     final duration = destination.durationS;
     final mode = destination.mode;
-    if (distance == null || duration == null || mode == null) {
+    if (routeDistance == null || duration == null || mode == null) {
       return const SizedBox.shrink();
     }
 
     final remaining = _distanceToActiveDestination();
     final isNear = remaining != null && remaining <= 90;
+    final distance = remaining ?? routeDistance;
 
     return _RouteSummaryCard(
       title: isNear ? _routeNearTitle() : _routeReadyTitle(),

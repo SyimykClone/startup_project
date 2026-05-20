@@ -13,6 +13,7 @@ import '../../models/poi.dart';
 import '../../services/location_service.dart';
 import '../../services/poi_service.dart';
 import '../../state/auth_state.dart';
+import '../../utils/app_error_text.dart';
 
 class ArScreen extends StatefulWidget {
   const ArScreen({super.key});
@@ -79,7 +80,7 @@ class _ArScreenState extends State<ArScreen> {
       setState(() => _loading = false);
       final message = isRu
           ? 'Не удалось запустить AR-сканирование. Проверьте камеру и геолокацию.'
-          : 'Failed to start AR scan: $e';
+          : AppErrorText.fromObject(context, e);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }
   }
@@ -94,22 +95,66 @@ class _ArScreenState extends State<ArScreen> {
       useMock: cfg.useMock,
     );
 
-    final arPoi = (await poiService.fetchPoiList())
-        .where((poi) => poi.arEnabled && poi.arModelAsset != null)
-        .toList();
-    if (arPoi.isEmpty) return null;
+    final targets = <_ArScanTarget>[];
 
-    arPoi.sort((a, b) {
-      final aDistance = _distanceTo(pos, a);
-      final bDistance = _distanceTo(pos, b);
-      return aDistance.compareTo(bDistance);
-    });
+    try {
+      final arPoi = (await poiService.fetchPoiList())
+          .where(
+            (poi) =>
+                poi.arEnabled &&
+                poi.arModelAsset != null &&
+                poi.arModelAsset!.trim().isNotEmpty,
+          )
+          .toList();
+      targets.addAll(
+        arPoi.map(
+          (poi) => _ArScanTarget.fromPoi(
+            poi: poi,
+            distanceM: _distanceTo(pos, poi),
+          ),
+        ),
+      );
+    } catch (_) {}
 
-    final nearest = arPoi.first;
-    return _ArScanTarget.fromPoi(
-      poi: nearest,
-      distanceM: _distanceTo(pos, nearest),
-    );
+    targets.addAll(_localArTargets(pos));
+    if (targets.isEmpty) return null;
+
+    targets.sort((a, b) => a.distanceM.compareTo(b.distanceM));
+    return targets.first;
+  }
+
+  List<_ArScanTarget> _localArTargets(Position pos) {
+    final isRu = _isRu;
+    return [
+      _ArScanTarget(
+        title: 'Ил-28',
+        description: isRu
+            ? 'Ил-28 — советский реактивный фронтовой бомбардировщик. В AR-режиме объект используется как интерактивная достопримечательность с 3D-моделью.'
+            : 'Il-28 is a Soviet jet front-line bomber. In AR mode it is shown as an interactive landmark with a 3D model.',
+        modelAsset: 'assets/ar_models/il28.glb',
+        distanceM: Geolocator.distanceBetween(
+          pos.latitude,
+          pos.longitude,
+          42.83562,
+          75.29171,
+        ),
+        radiusM: 220,
+      ),
+      _ArScanTarget(
+        title: isRu ? 'Башня Бурана' : 'Burana Tower',
+        description: isRu
+            ? 'Башня Бурана — исторический минарет рядом с Токмоком, часть древнего городища Баласагун.'
+            : 'Burana Tower is a historic minaret near Tokmok and part of the ancient Balasagun site.',
+        modelAsset: 'assets/ar_models/burana.glb',
+        distanceM: Geolocator.distanceBetween(
+          pos.latitude,
+          pos.longitude,
+          42.74632,
+          75.24996,
+        ),
+        radiusM: 260,
+      ),
+    ];
   }
 
   double _distanceTo(Position pos, Poi poi) {
