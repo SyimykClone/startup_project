@@ -39,4 +39,12 @@ class LocationService {
       throw const LocationFailure(LocationFailureReason.positionUnavailable);
     }
   }
+
+  Stream<Position> watchPosition() {
+    const settings = LocationSettings(
+      accuracy: LocationAccuracy.best,
+      distanceFilter: 3,
+    );
+    return Geolocator.getPositionStream(locationSettings: settings);
+  }
 }
