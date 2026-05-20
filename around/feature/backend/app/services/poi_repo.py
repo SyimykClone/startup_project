@@ -1,6 +1,7 @@
+import math
 from typing import List, Optional
 from app.core.db import get_pool
-from app.models.poi import Poi
+from app.models.poi import ArPoiNearby, Poi
 
 
 def _poi_from_row(row) -> Poi:
@@ -19,6 +20,28 @@ def _poi_from_row(row) -> Poi:
     )
 
 
+def _distance_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    radius = 6371000.0
+    d_lat = math.radians(lat2 - lat1)
+    d_lng = math.radians(lng2 - lng1)
+    r_lat1 = math.radians(lat1)
+    r_lat2 = math.radians(lat2)
+    a = (
+        math.sin(d_lat / 2) ** 2
+        + math.cos(r_lat1) * math.cos(r_lat2) * math.sin(d_lng / 2) ** 2
+    )
+    return radius * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def _ar_poi_from_row(row, distance_m: float) -> ArPoiNearby:
+    poi = _poi_from_row(row)
+    return ArPoiNearby(
+        **poi.model_dump(),
+        distance_m=round(distance_m, 1),
+        within_radius=distance_m <= poi.ar_radius_m,
+    )
+
+
 async def list_poi() -> List[Poi]:
     pool = get_pool()
     async with pool.acquire() as conn:
@@ -33,6 +56,38 @@ async def list_poi() -> List[Poi]:
             """
         )
     return [_poi_from_row(r) for r in rows]
+
+
+async def get_nearest_ar_poi(
+    lat: float,
+    lng: float,
+    max_distance_m: int = 1000,
+) -> Optional[ArPoiNearby]:
+    pool = get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT
+                id, name, description, latitude, longitude, category,
+                ar_enabled, ar_model_asset, ar_title, ar_description, ar_radius_m
+            FROM poi
+            WHERE ar_enabled = true
+              AND ar_model_asset IS NOT NULL
+              AND trim(ar_model_asset) <> ''
+              AND source = 'seed'
+            """
+        )
+    if not rows:
+        return None
+
+    nearest = min(
+        rows,
+        key=lambda row: _distance_m(lat, lng, row["latitude"], row["longitude"]),
+    )
+    distance = _distance_m(lat, lng, nearest["latitude"], nearest["longitude"])
+    if distance > max_distance_m:
+        return None
+    return _ar_poi_from_row(nearest, distance)
 
 
 async def get_poi(poi_id: int) -> Optional[Poi]:

@@ -16,6 +16,11 @@ class Poi(BaseModel):
     ar_radius_m: int = 120
 
 
+class ArPoiNearby(Poi):
+    distance_m: float
+    within_radius: bool
+
+
 class CustomPoiFromCoordinatesIn(BaseModel):
     lat: float
     lng: float
