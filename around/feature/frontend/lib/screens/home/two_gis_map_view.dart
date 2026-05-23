@@ -170,10 +170,21 @@ class _TwoGisMapViewState extends State<_TwoGisMapView> {
       }
     }
 
+    function normalizeCoords(coords) {
+      if (!coords) return null;
+      if (Array.isArray(coords) && coords.length >= 2) {
+        return { lng: Number(coords[0]), lat: Number(coords[1]) };
+      }
+      const lng = coords.lng ?? coords.lon ?? coords.longitude;
+      const lat = coords.lat ?? coords.latitude;
+      if (lng === undefined || lat === undefined) return null;
+      return { lng: Number(lng), lat: Number(lat) };
+    }
+
     map.on('click', function(event) {
-      const coords = event.lngLat || event.coordinates;
-      if (!coords) return;
-      post({ type: 'tap', lng: coords[0], lat: coords[1] });
+      const coords = normalizeCoords(event.lngLat || event.coordinates);
+      if (!coords || Number.isNaN(coords.lng) || Number.isNaN(coords.lat)) return;
+      post({ type: 'tap', lng: coords.lng, lat: coords.lat });
     });
 
     window.moveTo = function(lng, lat, zoom) {
@@ -193,6 +204,12 @@ class _TwoGisMapViewState extends State<_TwoGisMapView> {
         });
         if (marker.on) {
           marker.on('click', function() {
+            post({ type: 'markerTap', id: item.id });
+          });
+        }
+        if (marker.getContainer) {
+          marker.getContainer().addEventListener('click', function(event) {
+            event.stopPropagation();
             post({ type: 'markerTap', id: item.id });
           });
         }

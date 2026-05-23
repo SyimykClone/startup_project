@@ -146,14 +146,22 @@ class _MapScreenState extends State<MapScreen> {
     switch (type) {
       case 'tourist_attraction':
         return _isRu ? 'Достопримечательности' : 'Sights';
+      case 'food':
+        return _isRu ? 'Где поесть' : 'Food';
       case 'cafe':
         return _isRu ? 'Кафе' : 'Cafe';
+      case 'restaurant':
+        return _isRu ? 'Рестораны' : 'Restaurants';
       case 'lodging':
         return _isRu ? 'Отели' : 'Hotels';
       case 'museum':
         return _isRu ? 'Музеи' : 'Museums';
       case 'park':
         return _isRu ? 'Парки' : 'Parks';
+      case 'pharmacy':
+        return _isRu ? 'Аптеки' : 'Pharmacies';
+      case 'shop':
+        return _isRu ? 'Магазины' : 'Shops';
       default:
         return type;
     }
@@ -429,6 +437,17 @@ class _MapScreenState extends State<MapScreen> {
       if (!mounted) return;
       setState(() => _mapPlaces = places);
       _applyMapFilters();
+      if (places.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _isRu
+                  ? 'Поблизости ничего не найдено. Попробуйте другую категорию.'
+                  : 'Nothing found nearby. Try another category.',
+            ),
+          ),
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1163,10 +1182,14 @@ class _MapScreenState extends State<MapScreen> {
   Future<void> _openNearbyFiltersSheet() async {
     const nearbyTypes = [
       'tourist_attraction',
+      'food',
       'cafe',
+      'restaurant',
       'lodging',
       'museum',
       'park',
+      'pharmacy',
+      'shop',
     ];
 
     await showModalBottomSheet<void>(

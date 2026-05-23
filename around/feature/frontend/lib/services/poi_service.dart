@@ -37,14 +37,22 @@ class PoiService {
     switch (placeType) {
       case 'tourist_attraction':
         return '\u0434\u043e\u0441\u0442\u043e\u043f\u0440\u0438\u043c\u0435\u0447\u0430\u0442\u0435\u043b\u044c\u043d\u043e\u0441\u0442\u0438';
+      case 'food':
+        return '\u0435\u0434\u0430';
       case 'cafe':
         return '\u043a\u0430\u0444\u0435';
+      case 'restaurant':
+        return '\u0440\u0435\u0441\u0442\u043e\u0440\u0430\u043d';
       case 'lodging':
         return '\u043e\u0442\u0435\u043b\u0438';
       case 'museum':
         return '\u043c\u0443\u0437\u0435\u0438';
       case 'park':
         return '\u043f\u0430\u0440\u043a\u0438';
+      case 'pharmacy':
+        return '\u0430\u043f\u0442\u0435\u043a\u0430';
+      case 'shop':
+        return '\u043c\u0430\u0433\u0430\u0437\u0438\u043d';
       default:
         return placeType.replaceAll('_', ' ');
     }
