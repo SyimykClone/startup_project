@@ -215,6 +215,40 @@ def _coordinates_deep(raw: Any) -> list[list[float]]:
     return []
 
 
+def _endpoint_score(
+    coordinates: list[list[float]],
+    req: RouteRequest,
+) -> float:
+    if len(coordinates) < 2:
+        return float("inf")
+    start_lng, start_lat = coordinates[0]
+    end_lng, end_lat = coordinates[-1]
+    forward = _distance_m(req.from_lat, req.from_lng, start_lat, start_lng)
+    forward += _distance_m(req.to_lat, req.to_lng, end_lat, end_lng)
+    backward = _distance_m(req.from_lat, req.from_lng, end_lat, end_lng)
+    backward += _distance_m(req.to_lat, req.to_lng, start_lat, start_lng)
+    return min(forward, backward)
+
+
+def _normalize_route_coordinates(
+    coordinates: list[list[float]],
+    req: RouteRequest,
+) -> list[list[float]]:
+    if len(coordinates) < 2:
+        return []
+
+    original = coordinates
+    swapped = [[point[1], point[0]] for point in coordinates if len(point) >= 2]
+    candidates = [original, swapped]
+    best = min(candidates, key=lambda item: _endpoint_score(item, req))
+
+    fallback_distance = _distance_m(req.from_lat, req.from_lng, req.to_lat, req.to_lng)
+    max_allowed_endpoint_error = max(250.0, fallback_distance * 0.45)
+    if _endpoint_score(best, req) > max_allowed_endpoint_error:
+        return []
+    return best
+
+
 def _route_response_from_2gis(
     raw: Any,
     req: RouteRequest,
@@ -236,6 +270,7 @@ def _route_response_from_2gis(
     coordinates = _extract_coordinates(route)
     if len(coordinates) < 2:
         coordinates = _coordinates_deep(raw)
+    coordinates = _normalize_route_coordinates(coordinates, req)
     fallback_distance = _distance_m(req.from_lat, req.from_lng, req.to_lat, req.to_lng)
     if distance is None:
         distance = fallback_distance
@@ -250,6 +285,11 @@ def _route_response_from_2gis(
             "type": "LineString",
             "coordinates": coordinates,
             "fallback": len(coordinates) < 2,
+            "provider": "2gis",
+            "profile": req.profile,
+            "raw_2gis": raw,
+            "raw_route": route,
+            "raw_summary": summary,
         },
     )
 
@@ -270,6 +310,7 @@ async def twogis_places_search(
     radius_m: int = Query(default=1000, ge=10, le=40000),
     locale: str = Query(default="ru_RU", min_length=2, max_length=8),
     page_size: int = Query(default=10, ge=1, le=50),
+    rich: bool = Query(default=True),
 ):
     try:
         return await places_search(
@@ -279,6 +320,7 @@ async def twogis_places_search(
             radius_m=radius_m,
             locale=locale,
             page_size=page_size,
+            include_raw=rich,
         )
     except Exception as e:
         raise _handle_twogis_error(e)
@@ -377,7 +419,7 @@ async def twogis_routing(
     locale: str = Query(default="ru", min_length=2, max_length=5),
 ):
     try:
-        return await routing(
+        raw = await routing(
             from_lat=from_lat,
             from_lng=from_lng,
             to_lat=to_lat,
@@ -385,6 +427,11 @@ async def twogis_routing(
             transport=transport,
             locale=locale,
         )
+        return {
+            "provider": "2gis",
+            "transport": transport,
+            "raw_2gis": raw,
+        }
     except Exception as e:
         raise _handle_twogis_error(e)
 
@@ -399,7 +446,7 @@ async def twogis_directions(
     locale: str = Query(default="ru", min_length=2, max_length=5),
 ):
     try:
-        return await routing(
+        raw = await routing(
             from_lat=from_lat,
             from_lng=from_lng,
             to_lat=to_lat,
@@ -407,6 +454,11 @@ async def twogis_directions(
             transport=transport,
             locale=locale,
         )
+        return {
+            "provider": "2gis",
+            "transport": transport,
+            "raw_2gis": raw,
+        }
     except Exception as e:
         raise _handle_twogis_error(e)
 
@@ -451,13 +503,18 @@ async def twogis_public_transport(
     locale: str = Query(default="ru", min_length=2, max_length=5),
 ):
     try:
-        return await public_transport(
+        raw = await public_transport(
             from_lat=from_lat,
             from_lng=from_lng,
             to_lat=to_lat,
             to_lng=to_lng,
             locale=locale,
         )
+        return {
+            "provider": "2gis",
+            "transport": "public_transport",
+            "raw_2gis": raw,
+        }
     except Exception as e:
         raise _handle_twogis_error(e)
 

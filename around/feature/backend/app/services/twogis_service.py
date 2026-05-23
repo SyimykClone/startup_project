@@ -402,6 +402,7 @@ async def places_search(
     radius_m: int = 1000,
     locale: str = "ru_RU",
     page_size: int = 10,
+    include_raw: bool = True,
 ) -> list[dict]:
     params: dict[str, Any] = {
         "q": query,
@@ -418,7 +419,15 @@ async def places_search(
     return [
         normalized
         for item in items
-        if (normalized := _normalize_item(item, lat=lat, lng=lng)) is not None
+        if (
+            normalized := _normalize_item(
+                item,
+                lat=lat,
+                lng=lng,
+                include_raw=include_raw,
+            )
+        )
+        is not None
     ]
 
 
