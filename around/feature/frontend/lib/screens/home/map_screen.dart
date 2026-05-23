@@ -573,11 +573,20 @@ class _MapScreenState extends State<MapScreen> {
       final twoGisCandidates = await _poiService.resolveTapWith2Gis(
         lat: position.latitude,
         lng: position.longitude,
-        radiusM: 120,
+        radiusM: 35,
         locale: locale == 'ru' ? 'ru_KG' : 'en_RU',
       );
-      selectedPoi = twoGisCandidates.isNotEmpty
-          ? twoGisCandidates.first
+      final preciseCandidates = twoGisCandidates.where((poi) {
+        final distance = Geolocator.distanceBetween(
+          position.latitude,
+          position.longitude,
+          poi.latitude,
+          poi.longitude,
+        );
+        return distance <= 35;
+      }).toList();
+      selectedPoi = preciseCandidates.isNotEmpty
+          ? preciseCandidates.first
           : await _poiService.createCustomPoiFromCoordinates(
                 lat: position.latitude,
                 lng: position.longitude,
@@ -855,7 +864,7 @@ class _MapScreenState extends State<MapScreen> {
         _activeDestination = index;
         _selectedPoi = destination.poi;
       });
-      _drawRoute(resp, animate: animate);
+      _drawRoute(resp, animate: animate, mode: destination.mode!);
       _lastRouteRefreshPos = _userPos;
       _startRouteAutoRefresh();
       if (saveHistory) _loadRouteHistory();
@@ -867,8 +876,42 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  void _drawRoute(RouteResponse resp, {bool animate = true}) {
+  Color _routeColorForMode(String mode) {
+    switch (mode) {
+      case 'walking':
+        return _accent;
+      case 'transit':
+        return const Color(0xFF2F80ED);
+      case 'driving':
+      default:
+        return _base;
+    }
+  }
+
+  int _routeWidthForMode(String mode) {
+    return mode == 'walking' ? 6 : 5;
+  }
+
+  void _drawRoute(
+    RouteResponse resp, {
+    bool animate = true,
+    String mode = 'walking',
+  }) {
     _routeAnimationTimer?.cancel();
+    if (resp.geometry['fallback'] == true) {
+      setState(() => _polylines = <Polyline>{});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isRu
+                ? '2GIS не вернул геометрию маршрута для этого типа передвижения.'
+                : '2GIS did not return route geometry for this travel mode.',
+          ),
+        ),
+      );
+      return;
+    }
+
     final coords = (resp.geometry['coordinates'] as List)
         .map((c) => c as List)
         .map((c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()))
@@ -879,14 +922,17 @@ class _MapScreenState extends State<MapScreen> {
       return;
     }
 
+    final routeColor = _routeColorForMode(mode);
+    final routeWidth = _routeWidthForMode(mode);
+
     if (!animate) {
       setState(() {
         _polylines = {
           Polyline(
             polylineId: const PolylineId('route'),
             points: coords,
-            width: 5,
-            color: _base,
+            width: routeWidth,
+            color: routeColor,
           ),
         };
       });
@@ -903,8 +949,8 @@ class _MapScreenState extends State<MapScreen> {
         Polyline(
           polylineId: const PolylineId('route'),
           points: coords.take(visiblePoints).toList(),
-          width: 5,
-          color: _base,
+          width: routeWidth,
+          color: routeColor,
         ),
       };
     });
@@ -924,8 +970,8 @@ class _MapScreenState extends State<MapScreen> {
             Polyline(
               polylineId: const PolylineId('route'),
               points: coords.take(visiblePoints).toList(),
-              width: 5,
-              color: _base,
+              width: routeWidth,
+              color: routeColor,
             ),
           };
         });

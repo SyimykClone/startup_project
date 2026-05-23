@@ -125,6 +125,11 @@ class PoiService {
             'address': json['address'],
             'rating': json['rating'],
             'photo_url': json['photo_url'],
+            'distance_m': json['distance_m'],
+            'phone': json['phone'],
+            'website': json['website'],
+            'schedule_status': json['schedule_status'],
+            'reviews_count': json['reviews_count'],
           });
         })
         .toList();
@@ -152,6 +157,10 @@ class PoiService {
       'address': json['address'],
       'rating': json['rating'],
       'photo_url': json['photo_url'],
+      'phone': json['phone'],
+      'website': json['website'],
+      'schedule_status': json['schedule_status'],
+      'reviews_count': json['reviews_count'],
     });
   }
 
@@ -208,6 +217,11 @@ class PoiService {
             'address': json['address'],
             'rating': json['rating'],
             'photo_url': json['photo_url'],
+            'distance_m': json['distance_m'],
+            'phone': json['phone'],
+            'website': json['website'],
+            'schedule_status': json['schedule_status'],
+            'reviews_count': json['reviews_count'],
           });
         })
         .toList();
