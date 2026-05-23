@@ -46,7 +46,9 @@ def _distance_m(from_lat: float, from_lng: float, to_lat: float, to_lng: float) 
     return 2 * radius * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
-def _number_from(obj: dict[str, Any], keys: tuple[str, ...]) -> float | None:
+def _number_from(obj: Any, keys: tuple[str, ...]) -> float | None:
+    if not isinstance(obj, dict):
+        return None
     for key in keys:
         value = obj.get(key)
         if isinstance(value, (int, float)):
@@ -72,7 +74,10 @@ def _point_to_coordinate(point: Any) -> list[float] | None:
     return None
 
 
-def _extract_coordinates(route: dict[str, Any]) -> list[list[float]]:
+def _extract_coordinates(route: Any) -> list[list[float]]:
+    if not isinstance(route, dict):
+        return []
+
     geometry = route.get("geometry")
     if isinstance(geometry, dict):
         coordinates = geometry.get("coordinates")
@@ -90,6 +95,20 @@ def _extract_coordinates(route: dict[str, Any]) -> list[list[float]]:
             coordinates = [item for item in parsed if item is not None]
             if coordinates:
                 return coordinates
+    return []
+
+
+def _nested_dicts(value: Any) -> list[dict[str, Any]]:
+    if isinstance(value, dict):
+        nested = [value]
+        for child in value.values():
+            nested.extend(_nested_dicts(child))
+        return nested
+    if isinstance(value, list):
+        nested = []
+        for child in value:
+            nested.extend(_nested_dicts(child))
+        return nested
     return []
 
 
@@ -113,6 +132,30 @@ def _first_route(raw: Any) -> dict[str, Any]:
     return {}
 
 
+def _first_number_deep(raw: Any, keys: tuple[str, ...]) -> float | None:
+    for item in _nested_dicts(raw):
+        value = _number_from(item, keys)
+        if value is not None:
+            return value
+    return None
+
+
+def _coordinates_deep(raw: Any) -> list[list[float]]:
+    for item in _nested_dicts(raw):
+        coordinates = _extract_coordinates(item)
+        if len(coordinates) >= 2:
+            return coordinates
+
+        for key in ("points", "coordinates", "geometry", "path", "polyline"):
+            value = item.get(key)
+            if isinstance(value, list):
+                parsed = [_point_to_coordinate(point) for point in value]
+                coordinates = [point for point in parsed if point is not None]
+                if len(coordinates) >= 2:
+                    return coordinates
+    return []
+
+
 def _route_response_from_2gis(
     raw: Any,
     req: RouteRequest,
@@ -123,13 +166,17 @@ def _route_response_from_2gis(
     distance = (
         _number_from(route, ("distance", "distance_m", "total_distance", "length"))
         or _number_from(summary, ("distance", "distance_m", "total_distance", "length"))
+        or _first_number_deep(raw, ("distance", "distance_m", "total_distance", "length"))
     )
     duration = (
         _number_from(route, ("duration", "duration_s", "total_duration", "time"))
         or _number_from(summary, ("duration", "duration_s", "total_duration", "time"))
+        or _first_number_deep(raw, ("duration", "duration_s", "total_duration", "time"))
     )
 
     coordinates = _extract_coordinates(route)
+    if len(coordinates) < 2:
+        coordinates = _coordinates_deep(raw)
     if len(coordinates) < 2:
         coordinates = [
             [req.from_lng, req.from_lat],
