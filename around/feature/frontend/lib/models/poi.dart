@@ -10,6 +10,10 @@ class Poi {
   final String? address;
   final String? photoName;
   final String? photoUrl;
+  final String? phone;
+  final String? website;
+  final String? scheduleStatus;
+  final int? reviewsCount;
   final bool arEnabled;
   final String? arModelAsset;
   final String? arTitle;
@@ -30,6 +34,10 @@ class Poi {
     this.address,
     this.photoName,
     this.photoUrl,
+    this.phone,
+    this.website,
+    this.scheduleStatus,
+    this.reviewsCount,
     this.arEnabled = false,
     this.arModelAsset,
     this.arTitle,
@@ -52,6 +60,10 @@ class Poi {
       address: json['address'] as String?,
       photoName: json['photo_name'] as String?,
       photoUrl: json['photo_url'] as String?,
+      phone: json['phone'] as String?,
+      website: json['website'] as String?,
+      scheduleStatus: json['schedule_status'] as String?,
+      reviewsCount: (json['reviews_count'] as num?)?.toInt(),
       arEnabled: json['ar_enabled'] == true,
       arModelAsset: json['ar_model_asset'] as String?,
       arTitle: json['ar_title'] as String?,
