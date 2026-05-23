@@ -21,20 +21,22 @@ def _require_api_key() -> str:
     return key
 
 
-async def _get_json(url: str, params: dict[str, Any]) -> dict:
+async def _get_json(url: str, params: dict[str, Any]) -> Any:
     params = {"key": _require_api_key(), **params}
     async with httpx.AsyncClient(timeout=20.0) as client:
         res = await client.get(url, params=params)
     if res.status_code != 200:
         raise TwoGisError(f"2GIS HTTP error {res.status_code}: {res.text}")
     data = res.json()
+    if isinstance(data, list):
+        return data
     code = data.get("meta", {}).get("code")
     if code is not None and code != 200:
         raise TwoGisError(f"2GIS API failed: {code}")
     return data
 
 
-async def _post_json(url: str, body: dict[str, Any]) -> dict:
+async def _post_json(url: str, body: dict[str, Any]) -> Any:
     async with httpx.AsyncClient(timeout=25.0) as client:
         res = await client.post(
             url,
@@ -44,6 +46,8 @@ async def _post_json(url: str, body: dict[str, Any]) -> dict:
     if res.status_code != 200:
         raise TwoGisError(f"2GIS HTTP error {res.status_code}: {res.text}")
     data = res.json()
+    if isinstance(data, list):
+        return data
     status = data.get("status")
     code = data.get("meta", {}).get("code")
     if code is not None and code != 200:
@@ -51,6 +55,26 @@ async def _post_json(url: str, body: dict[str, Any]) -> dict:
     if status not in (None, "OK"):
         raise TwoGisError(f"2GIS API failed: {status}")
     return data
+
+
+def _items_from_response(data: Any) -> list[dict]:
+    if isinstance(data, list):
+        return [item for item in data if isinstance(item, dict)]
+    if not isinstance(data, dict):
+        return []
+
+    result = data.get("result")
+    if isinstance(result, list):
+        return [item for item in result if isinstance(item, dict)]
+    if isinstance(result, dict):
+        items = result.get("items") or result.get("objects") or []
+        if isinstance(items, list):
+            return [item for item in items if isinstance(item, dict)]
+
+    items = data.get("items") or []
+    if isinstance(items, list):
+        return [item for item in items if isinstance(item, dict)]
+    return []
 
 
 def _distance_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -210,7 +234,7 @@ async def places_search(
         params["location"] = f"{lng},{lat}"
         params["radius"] = radius_m
     data = await _get_json(f"{CATALOG_BASE_URL}/3.0/items", params)
-    items = data.get("result", {}).get("items", []) or []
+    items = _items_from_response(data)
     return [
         normalized
         for item in items
@@ -247,7 +271,7 @@ async def place_by_id(place_id: str, locale: str = "ru_KG") -> dict | None:
             "fields": TWOGIS_DETAIL_FIELDS,
         },
     )
-    items = data.get("result", {}).get("items", []) or []
+    items = _items_from_response(data)
     if not items:
         return None
     return _normalize_item(items[0])
