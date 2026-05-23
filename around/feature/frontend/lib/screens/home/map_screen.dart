@@ -1,11 +1,13 @@
 ﻿import 'package:around/state/auth_state.dart';
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/i18n/l10n.dart';
@@ -23,6 +25,7 @@ part 'map_search_bar.dart';
 part 'nearby_filters_sheet.dart';
 part 'route_info_sheet.dart';
 part 'selected_place_card.dart';
+part 'two_gis_map_view.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key, this.initialPoi});
@@ -45,9 +48,10 @@ class _DestinationItem {
 class _MapScreenState extends State<MapScreen> {
   static const _accent = Color(0xFFFAA916);
   static const _base = Color(0xFF151E3F);
-  static const _modes = ['walking', 'driving'];
+  static const _modes = ['walking', 'driving', 'transit'];
 
-  GoogleMapController? _map;
+  final _mapKey = GlobalKey<_TwoGisMapViewState>();
+  String _twogisApiKey = '';
 
   late PoiService _poiService;
   late RouteService _routeService;
@@ -72,7 +76,7 @@ class _MapScreenState extends State<MapScreen> {
   LatLng? _lastRouteRefreshPos;
   List<RouteHistoryItem> _routeHistory = [];
   bool _historyLoading = false;
-  List<Poi> _googlePlaces = [];
+  List<Poi> _mapPlaces = [];
   bool _placesLoading = false;
   String? _selectedNearbyType;
 
@@ -85,6 +89,10 @@ class _MapScreenState extends State<MapScreen> {
         return context.l10n.modeWalking;
       case 'driving':
         return context.l10n.modeDriving;
+      case 'transit':
+        return Localizations.localeOf(context).languageCode == 'ru'
+            ? 'Общественный транспорт'
+            : 'Public transport';
       default:
         return mode;
     }
@@ -103,7 +111,7 @@ class _MapScreenState extends State<MapScreen> {
       case 'custom':
         return _isRu ? 'Мои точки' : 'My points';
       case 'google_place':
-        return _isRu ? 'Google Places' : 'Google Places';
+        return 'Google Places';
       case 'twogis_place':
         return '2GIS';
       default:
@@ -259,9 +267,9 @@ class _MapScreenState extends State<MapScreen> {
     }).toList();
   }
 
-  List<Poi> _filteredGooglePlaces() {
+  List<Poi> _filteredMapPlaces() {
     final query = _searchQuery.trim().toLowerCase();
-    return _googlePlaces.where((poi) {
+    return _mapPlaces.where((poi) {
       return query.isEmpty ||
           poi.name.toLowerCase().contains(query) ||
           poi.description.toLowerCase().contains(query) ||
@@ -271,7 +279,7 @@ class _MapScreenState extends State<MapScreen> {
 
   void _applyMapFilters() {
     final poi = context.read<PoiState>().poi;
-    _drawPoiMarkers([..._filteredPoi(poi), ..._filteredGooglePlaces()]);
+    _drawPoiMarkers([..._filteredPoi(poi), ..._filteredMapPlaces()]);
   }
 
   @override
@@ -291,6 +299,7 @@ class _MapScreenState extends State<MapScreen> {
     _servicesInitialized = true;
 
     final cfg = context.read<AppConfig>();
+    _twogisApiKey = cfg.twogisApiKey;
     final token = context.read<AuthState>().token;
     _poiService = PoiService(
       ApiClient(cfg.apiBaseUrl, token: token),
@@ -302,8 +311,7 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  Future<void> _onMapCreated(GoogleMapController controller) async {
-    _map = controller;
+  Future<void> _onMapCreated() async {
     try {
       await _loadUserLocation();
       _startUserPositionTracking();
@@ -319,7 +327,11 @@ class _MapScreenState extends State<MapScreen> {
   Future<void> _loadUserLocation() async {
     final pos = await _location.getCurrentPosition();
     _userPos = LatLng(pos.latitude, pos.longitude);
-    await _map?.animateCamera(CameraUpdate.newLatLngZoom(_userPos!, 14));
+    _focusMap(_userPos!, zoom: 14);
+  }
+
+  void _focusMap(LatLng position, {double zoom = 15}) {
+    _mapKey.currentState?.moveTo(position, zoom: zoom);
   }
 
   void _startUserPositionTracking() {
@@ -386,7 +398,7 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  Future<void> _loadGoogleNearby(String placeType) async {
+  Future<void> _load2GisNearby(String placeType) async {
     if (_placesLoading) return;
     if (_userPos == null) {
       try {
@@ -406,15 +418,16 @@ class _MapScreenState extends State<MapScreen> {
     });
     _searchCtrl.clear();
     try {
-      final places = await _poiService.fetchGoogleNearbyPlaces(
+      final locale = Localizations.localeOf(context).languageCode;
+      final places = await _poiService.fetch2GisNearbyPlaces(
         lat: _userPos!.latitude,
         lng: _userPos!.longitude,
         placeType: placeType,
         radiusM: 2500,
-        language: Localizations.localeOf(context).languageCode,
+        locale: locale == 'ru' ? 'ru_KG' : 'en_RU',
       );
       if (!mounted) return;
-      setState(() => _googlePlaces = places);
+      setState(() => _mapPlaces = places);
       _applyMapFilters();
     } catch (e) {
       if (!mounted) return;
@@ -426,7 +439,7 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  Future<void> _searchGooglePlaces() async {
+  Future<void> _search2GisPlaces() async {
     final query = _searchQuery.trim();
     if (query.isEmpty || _placesLoading) return;
     if (_userPos == null) {
@@ -440,15 +453,16 @@ class _MapScreenState extends State<MapScreen> {
       _selectedNearbyType = null;
     });
     try {
-      final places = await _poiService.searchGooglePlaces(
+      final locale = Localizations.localeOf(context).languageCode;
+      final places = await _poiService.search2GisPlaces(
         query: query,
         lat: _userPos?.latitude,
         lng: _userPos?.longitude,
         radiusM: 5000,
-        language: Localizations.localeOf(context).languageCode,
+        locale: locale == 'ru' ? 'ru_KG' : 'en_RU',
       );
       if (!mounted) return;
-      setState(() => _googlePlaces = places);
+      setState(() => _mapPlaces = places);
       _applyMapFilters();
       if (places.isNotEmpty) {
         _focusPoiOnMap(places.first);
@@ -469,9 +483,12 @@ class _MapScreenState extends State<MapScreen> {
     if (placeId == null || placeId.isEmpty) return;
 
     try {
-      final detailed = await _poiService.fetchGooglePlaceDetails(
+      if (poi.category != 'twogis_place') return;
+      final detailed = await _poiService.fetch2GisPlaceDetails(
         placeId: placeId,
-        language: Localizations.localeOf(context).languageCode,
+        locale: Localizations.localeOf(context).languageCode == 'ru'
+            ? 'ru_KG'
+            : 'en_RU',
       );
       if (!mounted) return;
       setState(() => _selectedPoi = detailed);
@@ -542,22 +559,18 @@ class _MapScreenState extends State<MapScreen> {
       );
       selectedPoi = twoGisCandidates.isNotEmpty
           ? twoGisCandidates.first
-          : await _poiService.findGooglePlaceNearCoordinates(
-                lat: position.latitude,
-                lng: position.longitude,
-                radiusM: 100,
-                language: locale,
-              ) ??
-              await _poiService.createCustomPoiFromCoordinates(
+          : await _poiService.createCustomPoiFromCoordinates(
                 lat: position.latitude,
                 lng: position.longitude,
                 language: locale,
               );
       final placeId = selectedPoi.googlePlaceId;
-      if (placeId != null && placeId.isNotEmpty) {
-        selectedPoi = await _poiService.fetchGooglePlaceDetails(
+      if (selectedPoi.category == 'twogis_place' &&
+          placeId != null &&
+          placeId.isNotEmpty) {
+        selectedPoi = await _poiService.fetch2GisPlaceDetails(
           placeId: placeId,
-          language: locale,
+          locale: locale == 'ru' ? 'ru_KG' : 'en_RU',
         );
       }
     } catch (e) {
@@ -1072,12 +1085,7 @@ class _MapScreenState extends State<MapScreen> {
     }
 
     setState(() => _selectedPoi = initialPoi);
-    await _map?.animateCamera(
-      CameraUpdate.newLatLngZoom(
-        LatLng(initialPoi.latitude, initialPoi.longitude),
-        15,
-      ),
-    );
+    _focusMap(LatLng(initialPoi.latitude, initialPoi.longitude), zoom: 15);
   }
 
   Future<void> _toggleFavorite() async {
@@ -1118,9 +1126,7 @@ class _MapScreenState extends State<MapScreen> {
       _selectedPoi = poi;
       _markers = refreshed;
     });
-    _map?.animateCamera(
-      CameraUpdate.newLatLngZoom(LatLng(poi.latitude, poi.longitude), 15),
-    );
+    _focusMap(LatLng(poi.latitude, poi.longitude), zoom: 15);
   }
 
   Future<void> _openHistorySheet() async {
@@ -1174,7 +1180,7 @@ class _MapScreenState extends State<MapScreen> {
         typeText: _nearbyTypeText,
         onSelected: (type) {
           Navigator.pop(context);
-          _loadGoogleNearby(type);
+          _load2GisNearby(type);
         },
       ),
     );
@@ -1248,7 +1254,7 @@ class _MapScreenState extends State<MapScreen> {
   Widget build(BuildContext context) {
     final poiState = context.watch<PoiState>();
     final routeState = context.watch<RouteState>();
-    final filteredPoi = [..._filteredPoi(poiState.poi), ..._filteredGooglePlaces()];
+    final filteredPoi = [..._filteredPoi(poiState.poi), ..._filteredMapPlaces()];
     final filteredCount = filteredPoi.length;
     final isFavorite =
         _selectedPoi != null &&
@@ -1281,7 +1287,7 @@ class _MapScreenState extends State<MapScreen> {
             onOpenNearby: _openNearbyFiltersSheet,
             onOpenRoutes: _openRoutesSheet,
             onOpenHistory: _openHistorySheet,
-            onSearch: _searchGooglePlaces,
+            onSearch: _search2GisPlaces,
             onSearchChanged: (value) {
               setState(() => _searchQuery = value);
               _applyMapFilters();
@@ -1296,18 +1302,22 @@ class _MapScreenState extends State<MapScreen> {
           Expanded(
             child: Stack(
               children: [
-                GoogleMap(
-                  initialCameraPosition: const CameraPosition(
-                    target: LatLng(42.828912, 75.289289),
-                    zoom: 12,
-                  ),
-                  myLocationEnabled: true,
-                  myLocationButtonEnabled: true,
-                  zoomControlsEnabled: false,
+                _TwoGisMapView(
+                  key: _mapKey,
+                  apiKey: _twogisApiKey,
+                  initialCenter: const LatLng(42.828912, 75.289289),
                   markers: _markers,
                   polylines: _polylines,
-                  onMapCreated: _onMapCreated,
+                  userPosition: _userPos,
+                  onMapReady: _onMapCreated,
                   onTap: _onMapTap,
+                  onMarkerTap: (markerId) {
+                    final value = markerId.replaceFirst('poi_', '');
+                    final id = int.tryParse(value);
+                    if (id == null) return;
+                    final match = filteredPoi.where((poi) => poi.id == id);
+                    if (match.isNotEmpty) _selectPoi(match.first);
+                  },
                 ),
                 _SelectedPoiCard(
                   poiLoading: poiState.loading,

@@ -21,7 +21,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get english => 'English';
 
   @override
-  String get splashTagline => 'Find routes. Save places. Travel smarter.';
+  String get splashTagline => 'Build routes. Save places. Travel smarter.';
 
   @override
   String get authTagline => 'Explore the world around you';
@@ -81,7 +81,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get registerCreateAccount => 'Create account';
 
   @override
-  String get registerSubtitle => 'Join ARound and start exploring';
+  String get registerSubtitle =>
+      'Join ARound and start exploring nearby places';
 
   @override
   String get username => 'Username';
@@ -162,7 +163,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get retry => 'Retry';
 
   @override
-  String get favoritesEmpty => 'Favorites list is empty';
+  String get favoritesEmpty => 'Your favorites list is empty';
 
   @override
   String get visitedEmpty => 'No visited places yet';
@@ -208,7 +209,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get newPassword => 'New password';
 
   @override
-  String get newPasswordHint => 'Leave empty if you do not want to change it';
+  String get newPasswordHint =>
+      'Leave this field empty to keep your current password';
 
   @override
   String get saveChanges => 'Save changes';
@@ -220,7 +222,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get logOut => 'Log out';
 
   @override
-  String get destinations => 'Destinations';
+  String get destinations => 'Routes';
 
   @override
   String get add => 'Add';
@@ -244,7 +246,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get save => 'Save';
 
   @override
-  String get directions => 'Directions';
+  String get directions => 'Route';
 
   @override
   String get tapMarkerOrAdd => 'Tap marker or add destination';
@@ -277,7 +279,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String requestFailed(int code) {
-    return 'Request failed ($code)';
+    return 'Request failed with status $code';
   }
 
   @override
@@ -314,7 +316,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get toursBusinessHint => 'Create, edit and publish your tours';
 
   @override
-  String get toursUserHint => 'Published tours from business users';
+  String get toursUserHint => 'Browse published tours from local partners';
 
   @override
   String get createTour => 'Create tour';
@@ -338,7 +340,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tourDistanceKm => 'Distance (km)';
 
   @override
-  String get tourStopsCount => 'Stops count';
+  String get tourStopsCount => 'Number of stops';
 
   @override
   String get tourDifficulty => 'Difficulty';
@@ -359,7 +361,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get draft => 'Draft';
 
   @override
-  String get daysUnit => 'days';
+  String get daysUnit => 'd.';
 
   @override
   String get stopsUnit => 'stops';

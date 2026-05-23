@@ -157,10 +157,18 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                       Text(
                         l10n.loadError(_error!),
                         textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: base,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 10),
                       FilledButton(
                         onPressed: _loadFavorites,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: accent,
+                          foregroundColor: base,
+                        ),
                         child: Text(l10n.retry),
                       ),
                     ],
@@ -274,6 +282,10 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                                 Expanded(
                                   child: OutlinedButton.icon(
                                     onPressed: () => _openPoiOnMap(poi),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: base,
+                                      side: const BorderSide(color: base),
+                                    ),
                                     icon: const Icon(
                                       Icons.map_outlined,
                                       size: 18,
@@ -285,6 +297,10 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                                 Expanded(
                                   child: FilledButton.icon(
                                     onPressed: () => _openPoiDetails(poi),
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: accent,
+                                      foregroundColor: base,
+                                    ),
                                     icon: const Icon(
                                       Icons.info_outline,
                                       size: 18,
@@ -298,6 +314,9 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                               alignment: Alignment.centerRight,
                               child: TextButton.icon(
                                 onPressed: () => _confirmAndRemoveFavorite(poi),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: base.withOpacity(0.72),
+                                ),
                                 icon: const Icon(Icons.delete_outline, size: 18),
                                 label: Text(l10n.remove),
                               ),
