@@ -25,7 +25,7 @@ class RouteService {
       );
     }
 
-    final res = await api.dio.post('/api/google/directions', data: req.toJson());
+    final res = await api.dio.post('/api/2gis/directions', data: req.toJson());
     return RouteResponse.fromJson((res.data as Map).cast<String, dynamic>());
   }
 
@@ -33,7 +33,7 @@ class RouteService {
     if (useMock) return [];
 
     final res = await api.dio.get(
-      '/api/google/directions/history',
+      '/api/2gis/directions/history',
       queryParameters: {'limit': limit},
     );
     final data = res.data as List;

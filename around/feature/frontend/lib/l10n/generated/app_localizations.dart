@@ -125,7 +125,7 @@ abstract class AppLocalizations {
   /// No description provided for @splashTagline.
   ///
   /// In en, this message translates to:
-  /// **'Find routes. Save places. Travel smarter.'**
+  /// **'Build routes. Save places. Travel smarter.'**
   String get splashTagline;
 
   /// No description provided for @authTagline.
@@ -245,7 +245,7 @@ abstract class AppLocalizations {
   /// No description provided for @registerSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Join ARound and start exploring'**
+  /// **'Join ARound and start exploring nearby places'**
   String get registerSubtitle;
 
   /// No description provided for @username.
@@ -401,7 +401,7 @@ abstract class AppLocalizations {
   /// No description provided for @favoritesEmpty.
   ///
   /// In en, this message translates to:
-  /// **'Favorites list is empty'**
+  /// **'Your favorites list is empty'**
   String get favoritesEmpty;
 
   /// No description provided for @visitedEmpty.
@@ -485,7 +485,7 @@ abstract class AppLocalizations {
   /// No description provided for @newPasswordHint.
   ///
   /// In en, this message translates to:
-  /// **'Leave empty if you do not want to change it'**
+  /// **'Leave this field empty to keep your current password'**
   String get newPasswordHint;
 
   /// No description provided for @saveChanges.
@@ -509,7 +509,7 @@ abstract class AppLocalizations {
   /// No description provided for @destinations.
   ///
   /// In en, this message translates to:
-  /// **'Destinations'**
+  /// **'Routes'**
   String get destinations;
 
   /// No description provided for @add.
@@ -557,7 +557,7 @@ abstract class AppLocalizations {
   /// No description provided for @directions.
   ///
   /// In en, this message translates to:
-  /// **'Directions'**
+  /// **'Route'**
   String get directions;
 
   /// No description provided for @tapMarkerOrAdd.
@@ -611,7 +611,7 @@ abstract class AppLocalizations {
   /// No description provided for @requestFailed.
   ///
   /// In en, this message translates to:
-  /// **'Request failed ({code})'**
+  /// **'Request failed with status {code}'**
   String requestFailed(int code);
 
   /// No description provided for @selectMode.
@@ -683,7 +683,7 @@ abstract class AppLocalizations {
   /// No description provided for @toursUserHint.
   ///
   /// In en, this message translates to:
-  /// **'Published tours from business users'**
+  /// **'Browse published tours from local partners'**
   String get toursUserHint;
 
   /// No description provided for @createTour.
@@ -731,7 +731,7 @@ abstract class AppLocalizations {
   /// No description provided for @tourStopsCount.
   ///
   /// In en, this message translates to:
-  /// **'Stops count'**
+  /// **'Number of stops'**
   String get tourStopsCount;
 
   /// No description provided for @tourDifficulty.
@@ -773,7 +773,7 @@ abstract class AppLocalizations {
   /// No description provided for @daysUnit.
   ///
   /// In en, this message translates to:
-  /// **'days'**
+  /// **'d.'**
   String get daysUnit;
 
   /// No description provided for @stopsUnit.
