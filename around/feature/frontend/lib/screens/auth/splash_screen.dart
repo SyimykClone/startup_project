@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/i18n/l10n.dart';
 import '../home/app_shell_screen.dart';
 import '../../state/auth_state.dart';
-import 'auth_choice_screen.dart';
+import 'auth_choice_onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -36,7 +36,7 @@ class _SplashScreenState extends State<SplashScreen> {
     _navigated = true;
     final targetScreen = auth.isAuthed
         ? const AppShellScreen()
-        : const AuthChoiceScreen();
+        : const AuthChoiceOnboardingScreen();
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
@@ -66,6 +66,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthState>();
+    final isRu = Localizations.localeOf(context).languageCode == 'ru';
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _tryNavigate(auth);
@@ -130,8 +131,12 @@ class _SplashScreenState extends State<SplashScreen> {
                       const SizedBox(height: 22),
                       Text(
                         auth.isLoading
-                            ? 'Подготавливаем ваше путешествие...'
-                            : 'Ищем маршруты, туры и места рядом...',
+                            ? (isRu
+                                ? 'Подготавливаем ваше путешествие...'
+                                : 'Preparing your journey...')
+                            : (isRu
+                                ? 'Ищем маршруты, туры и места рядом...'
+                                : 'Finding routes, tours and nearby places...'),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: _base.withOpacity(0.58),
@@ -163,7 +168,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     border: Border.all(color: Colors.white.withOpacity(0.16)),
                   ),
                   child: Text(
-                    'Маршруты · Туры · AR',
+                    isRu ? 'Маршруты · Туры · AR' : 'Routes · Tours · AR',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.82),
                       fontSize: 12,
