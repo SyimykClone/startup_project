@@ -63,8 +63,13 @@ def _number_from(obj: Any, keys: tuple[str, ...]) -> float | None:
 
 def _point_to_coordinate(point: Any) -> list[float] | None:
     if isinstance(point, dict):
-        lat = point.get("lat") or point.get("latitude")
-        lng = point.get("lon") or point.get("lng") or point.get("longitude")
+        lat = point.get("lat") or point.get("latitude") or point.get("y")
+        lng = (
+            point.get("lon")
+            or point.get("lng")
+            or point.get("longitude")
+            or point.get("x")
+        )
         if isinstance(lat, (int, float)) and isinstance(lng, (int, float)):
             return [float(lng), float(lat)]
     if isinstance(point, (list, tuple)) and len(point) >= 2:
@@ -140,7 +145,61 @@ def _first_number_deep(raw: Any, keys: tuple[str, ...]) -> float | None:
     return None
 
 
+def _is_coordinate_pair(value: Any) -> bool:
+    if not isinstance(value, (list, tuple)) or len(value) < 2:
+        return False
+    first, second = value[0], value[1]
+    if not isinstance(first, (int, float)) or not isinstance(second, (int, float)):
+        return False
+    return -180 <= first <= 180 and -90 <= second <= 90
+
+
+def _coordinate_lists_deep(value: Any) -> list[list[list[float]]]:
+    if isinstance(value, list):
+        parsed_points = [_point_to_coordinate(item) for item in value]
+        coordinates = [item for item in parsed_points if item is not None]
+        if len(coordinates) >= 2:
+            return [coordinates]
+
+        if len(value) >= 2 and all(_is_coordinate_pair(item) for item in value):
+            parsed = [_point_to_coordinate(item) for item in value]
+            coordinates = [item for item in parsed if item is not None]
+            if len(coordinates) >= 2:
+                return [coordinates]
+
+        results: list[list[list[float]]] = []
+        for item in value:
+            results.extend(_coordinate_lists_deep(item))
+        return results
+
+    if isinstance(value, dict):
+        preferred_keys = (
+            "coordinates",
+            "points",
+            "path",
+            "polyline",
+            "geometry",
+            "selection",
+            "outcoming_path",
+            "walking_path",
+        )
+        results = []
+        for key in preferred_keys:
+            if key in value:
+                results.extend(_coordinate_lists_deep(value[key]))
+        for key, item in value.items():
+            if key not in preferred_keys:
+                results.extend(_coordinate_lists_deep(item))
+        return results
+
+    return []
+
+
 def _coordinates_deep(raw: Any) -> list[list[float]]:
+    deep_candidates = _coordinate_lists_deep(raw)
+    if deep_candidates:
+        return max(deep_candidates, key=len)
+
     for item in _nested_dicts(raw):
         coordinates = _extract_coordinates(item)
         if len(coordinates) >= 2:
@@ -177,12 +236,6 @@ def _route_response_from_2gis(
     coordinates = _extract_coordinates(route)
     if len(coordinates) < 2:
         coordinates = _coordinates_deep(raw)
-    if len(coordinates) < 2:
-        coordinates = [
-            [req.from_lng, req.from_lat],
-            [req.to_lng, req.to_lat],
-        ]
-
     fallback_distance = _distance_m(req.from_lat, req.from_lng, req.to_lat, req.to_lng)
     if distance is None:
         distance = fallback_distance
@@ -193,7 +246,11 @@ def _route_response_from_2gis(
     return RouteResponse(
         distance_m=float(distance),
         duration_s=float(duration),
-        geometry={"type": "LineString", "coordinates": coordinates},
+        geometry={
+            "type": "LineString",
+            "coordinates": coordinates,
+            "fallback": len(coordinates) < 2,
+        },
     )
 
 

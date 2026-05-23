@@ -25,6 +25,16 @@ async def _get_json(url: str, params: dict[str, Any]) -> Any:
     params = {"key": _require_api_key(), **params}
     async with httpx.AsyncClient(timeout=20.0) as client:
         res = await client.get(url, params=params)
+        if res.status_code == 400 and "fields" in params:
+            safe_params = {
+                **params,
+                "fields": (
+                    "items.point,items.address,items.address_name,"
+                    "items.full_address_name,items.rubrics,items.description,"
+                    "items.summary,items.reviews,items.photos,items.flags"
+                ),
+            }
+            res = await client.get(url, params=safe_params)
     if res.status_code != 200:
         raise TwoGisError(f"2GIS HTTP error {res.status_code}: {res.text}")
     data = res.json()
@@ -111,8 +121,15 @@ def _is_clean_name(name: str) -> bool:
 
 TWOGIS_DETAIL_FIELDS = (
     "items.point,items.address,items.address_name,items.full_address_name,"
-    "items.rubrics,items.description,items.summary,items.reviews,"
-    "items.external_content,items.photos,items.flags"
+    "items.address_comment,items.adm_div,items.geometry.centroid,"
+    "items.geometry.hover,items.geometry.selection,items.rubrics,items.org,"
+    "items.brand,items.description,items.summary,items.reviews,"
+    "items.external_content,items.photos,items.flags,items.contact_groups,"
+    "items.schedule,items.schedule_special,items.links,items.ads,"
+    "items.access,items.access_comment,items.capacity,items.floors,"
+    "items.floor_plans,items.employees_org_count,items.itin,"
+    "items.trade_license,items.fias_code,items.fns_code,items.okato,"
+    "items.search_attributes.segment_id"
 )
 
 SAFE_RESOLVE_TAP_QUERIES = (
@@ -129,26 +146,32 @@ SAFE_RESOLVE_TAP_QUERIES = (
 
 
 def _extract_photo_url(item: dict) -> str | None:
+    photos = _extract_photo_urls(item)
+    return photos[0] if photos else None
+
+
+def _extract_photo_urls(item: dict) -> list[str]:
+    urls: list[str] = []
     for photo in item.get("photos") or []:
         if not isinstance(photo, dict):
             continue
         for key in ("url", "photo_url", "image_url", "preview_url"):
             value = photo.get(key)
             if isinstance(value, str) and value.strip():
-                return value.strip().replace("http://", "https://")
-        urls = photo.get("urls")
-        if isinstance(urls, dict):
-            for value in urls.values():
+                urls.append(value.strip().replace("http://", "https://"))
+        photo_urls = photo.get("urls")
+        if isinstance(photo_urls, dict):
+            for value in photo_urls.values():
                 if isinstance(value, str) and value.strip():
-                    return value.strip().replace("http://", "https://")
+                    urls.append(value.strip().replace("http://", "https://"))
 
     for content in item.get("external_content") or []:
         if isinstance(content, dict):
             for key in ("main_photo_url", "photo_url", "url", "image_url"):
                 photo_url = content.get(key)
                 if isinstance(photo_url, str) and photo_url.strip():
-                    return photo_url.strip().replace("http://", "https://")
-    return None
+                    urls.append(photo_url.strip().replace("http://", "https://"))
+    return list(dict.fromkeys(urls))
 
 
 def _extract_rating(item: dict) -> float | None:
@@ -166,6 +189,107 @@ def _extract_rating(item: dict) -> float | None:
         return None
 
 
+def _extract_reviews_count(item: dict) -> int | None:
+    reviews = item.get("reviews") or {}
+    for key in (
+        "review_count",
+        "org_review_count",
+        "org_review_count_with_stars",
+        "items_count",
+        "count",
+        "reviews_count",
+    ):
+        value = reviews.get(key)
+        if isinstance(value, int):
+            return value
+        if isinstance(value, str) and value.isdigit():
+            return int(value)
+    return None
+
+
+def _extract_contacts(item: dict) -> dict[str, list[str]]:
+    contacts: dict[str, list[str]] = {}
+    for group in item.get("contact_groups") or []:
+        if not isinstance(group, dict):
+            continue
+        for contact in group.get("contacts") or []:
+            if not isinstance(contact, dict):
+                continue
+            contact_type = str(contact.get("type") or "other")
+            value = contact.get("value") or contact.get("text")
+            if not isinstance(value, str) or not value.strip():
+                continue
+            contacts.setdefault(contact_type, []).append(value.strip())
+    return {
+        key: list(dict.fromkeys(values))
+        for key, values in contacts.items()
+        if values
+    }
+
+
+def _extract_contact(item: dict, contact_type: str) -> str | None:
+    values = _extract_contacts(item).get(contact_type) or []
+    return values[0] if values else None
+
+
+def _extract_site(item: dict) -> str | None:
+    sites = _extract_websites(item)
+    return sites[0] if sites else None
+
+
+def _extract_websites(item: dict) -> list[str]:
+    sites = _extract_contacts(item).get("website") or []
+    for link in item.get("links") or []:
+        if not isinstance(link, dict):
+            continue
+        value = link.get("url") or link.get("href")
+        if isinstance(value, str) and value.strip():
+            sites.append(value.strip())
+    return list(dict.fromkeys(sites))
+
+
+def _extract_schedule_status(item: dict) -> str | None:
+    schedule = item.get("schedule")
+    if not isinstance(schedule, dict):
+        return None
+    for key in ("status", "open_now", "description"):
+        value = schedule.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        if isinstance(value, bool):
+            return "open" if value else "closed"
+    return None
+
+
+def _extract_rubrics(item: dict) -> list[dict]:
+    return [
+        rubric
+        for rubric in item.get("rubrics") or []
+        if isinstance(rubric, dict)
+    ]
+
+
+def _extract_rubric_names(item: dict) -> list[str]:
+    names = []
+    for rubric in _extract_rubrics(item):
+        name = rubric.get("name")
+        if isinstance(name, str) and name.strip():
+            names.append(name.strip())
+    return names
+
+
+def _extract_point(point: dict) -> dict[str, float] | None:
+    lat = point.get("lat")
+    lng = point.get("lon") or point.get("lng")
+    if isinstance(lat, (int, float)) and isinstance(lng, (int, float)):
+        return {"lat": float(lat), "lng": float(lng)}
+    return None
+
+
+def _extract_contacts_flat(item: dict, contact_type: str) -> list[str]:
+    return _extract_contacts(item).get(contact_type) or []
+
+
 def _extract_description(item: dict, category: str, address: str) -> str:
     summary = item.get("summary") or {}
     summary_text = summary.get("text") if isinstance(summary, dict) else None
@@ -176,7 +300,12 @@ def _extract_description(item: dict, category: str, address: str) -> str:
     return ""
 
 
-def _normalize_item(item: dict, lat: float | None = None, lng: float | None = None) -> dict | None:
+def _normalize_item(
+    item: dict,
+    lat: float | None = None,
+    lng: float | None = None,
+    include_raw: bool = False,
+) -> dict | None:
     point = item.get("point") or {}
     item_lat = point.get("lat")
     item_lng = point.get("lon") or point.get("lng")
@@ -194,17 +323,66 @@ def _normalize_item(item: dict, lat: float | None = None, lng: float | None = No
         or item.get("address_comment")
         or ""
     )
+    contacts = _extract_contacts(item)
+    photos = _extract_photo_urls(item)
+    search_attributes = item.get("search_attributes") or {}
 
     normalized = {
         "id": item.get("id"),
+        "provider": "2gis",
+        "provider_place_id": item.get("id"),
         "name": name,
+        "full_name": item.get("full_name") or name,
+        "type": item.get("type"),
+        "subtype": item.get("subtype"),
+        "purpose_name": item.get("purpose_name"),
+        "region_id": item.get("region_id"),
+        "segment_id": item.get("segment_id") or search_attributes.get("segment_id"),
         "address": address,
+        "full_address": item.get("full_address_name") or address,
+        "address_comment": item.get("address_comment"),
+        "adm_div": item.get("adm_div"),
         "description": _extract_description(item, category, address),
         "lat": float(item_lat),
         "lng": float(item_lng),
+        "point": _extract_point(point),
+        "geometry": item.get("geometry"),
         "category": category,
+        "rubrics": _extract_rubrics(item),
+        "rubric_names": _extract_rubric_names(item),
         "rating": _extract_rating(item),
-        "photo_url": _extract_photo_url(item),
+        "reviews_count": _extract_reviews_count(item),
+        "reviews": item.get("reviews"),
+        "photo_url": photos[0] if photos else None,
+        "photo_urls": photos,
+        "photos": item.get("photos") or [],
+        "phone": _extract_contact(item, "phone"),
+        "phones": _extract_contacts_flat(item, "phone"),
+        "email": _extract_contact(item, "email"),
+        "emails": _extract_contacts_flat(item, "email"),
+        "website": _extract_site(item),
+        "websites": _extract_websites(item),
+        "contacts": contacts,
+        "schedule_status": _extract_schedule_status(item),
+        "schedule": item.get("schedule"),
+        "schedule_special": item.get("schedule_special"),
+        "flags": item.get("flags") or [],
+        "org": item.get("org"),
+        "brand": item.get("brand"),
+        "links": item.get("links") or [],
+        "external_content": item.get("external_content") or [],
+        "ads": item.get("ads"),
+        "access": item.get("access"),
+        "access_comment": item.get("access_comment"),
+        "capacity": item.get("capacity"),
+        "floors": item.get("floors"),
+        "floor_plans": item.get("floor_plans"),
+        "employees_org_count": item.get("employees_org_count"),
+        "itin": item.get("itin"),
+        "trade_license": item.get("trade_license"),
+        "fias_code": item.get("fias_code"),
+        "fns_code": item.get("fns_code"),
+        "okato": item.get("okato"),
         "source": "2gis",
     }
     if lat is not None and lng is not None:
@@ -212,6 +390,8 @@ def _normalize_item(item: dict, lat: float | None = None, lng: float | None = No
             _distance_m(lat, lng, normalized["lat"], normalized["lng"]),
             1,
         )
+    if include_raw:
+        normalized["raw_2gis"] = item
     return normalized
 
 
@@ -274,7 +454,7 @@ async def place_by_id(place_id: str, locale: str = "ru_KG") -> dict | None:
     items = _items_from_response(data)
     if not items:
         return None
-    return _normalize_item(items[0])
+    return _normalize_item(items[0], include_raw=True)
 
 
 async def suggest(
