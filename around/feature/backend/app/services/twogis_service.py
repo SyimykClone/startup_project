@@ -88,16 +88,42 @@ def _is_clean_name(name: str) -> bool:
 TWOGIS_DETAIL_FIELDS = (
     "items.point,items.address,items.address_name,items.full_address_name,"
     "items.rubrics,items.description,items.summary,items.reviews,"
-    "items.external_content,items.flags"
+    "items.external_content,items.photos,items.flags"
+)
+
+SAFE_RESOLVE_TAP_QUERIES = (
+    "\u043c\u0430\u0433\u0430\u0437\u0438\u043d",
+    "\u043a\u0430\u0444\u0435",
+    "\u0440\u0435\u0441\u0442\u043e\u0440\u0430\u043d",
+    "\u0430\u043f\u0442\u0435\u043a\u0430",
+    "\u0431\u0430\u043d\u043a",
+    "\u043e\u0442\u0435\u043b\u044c",
+    "\u043c\u0443\u0437\u0435\u0439",
+    "\u043f\u0430\u0440\u043a",
+    "\u0441\u0443\u043f\u0435\u0440\u043c\u0430\u0440\u043a\u0435\u0442",
 )
 
 
 def _extract_photo_url(item: dict) -> str | None:
+    for photo in item.get("photos") or []:
+        if not isinstance(photo, dict):
+            continue
+        for key in ("url", "photo_url", "image_url", "preview_url"):
+            value = photo.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip().replace("http://", "https://")
+        urls = photo.get("urls")
+        if isinstance(urls, dict):
+            for value in urls.values():
+                if isinstance(value, str) and value.strip():
+                    return value.strip().replace("http://", "https://")
+
     for content in item.get("external_content") or []:
         if isinstance(content, dict):
-            photo_url = content.get("main_photo_url")
-            if isinstance(photo_url, str) and photo_url.strip():
-                return photo_url.strip().replace("http://", "https://")
+            for key in ("main_photo_url", "photo_url", "url", "image_url"):
+                photo_url = content.get(key)
+                if isinstance(photo_url, str) and photo_url.strip():
+                    return photo_url.strip().replace("http://", "https://")
     return None
 
 
@@ -310,7 +336,7 @@ async def resolve_tap(lat: float, lng: float, radius_m: int = 80, locale: str = 
     ]
     results_by_id: dict[str, dict] = {}
 
-    for query in queries:
+    for query in SAFE_RESOLVE_TAP_QUERIES:
         items = await places_search(
             query=query,
             lat=lat,
