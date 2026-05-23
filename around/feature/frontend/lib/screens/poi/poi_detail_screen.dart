@@ -20,6 +20,28 @@ class PoiDetailScreen extends StatelessWidget {
     final l10n = context.l10n;
     final coordinatesLabel = locale == 'ru' ? 'Координаты' : 'Coordinates';
     final routeErrorLabel = locale == 'ru' ? 'Ошибка маршрута' : 'Route error';
+    final addressLabel = locale == 'ru' ? 'Адрес' : 'Address';
+    final contactsLabel = locale == 'ru' ? 'Контакты' : 'Contacts';
+    final scheduleLabel = locale == 'ru' ? 'График' : 'Schedule';
+    final ratingLabel = locale == 'ru' ? 'Рейтинг' : 'Rating';
+    final sourceLabel = locale == 'ru' ? 'Источник' : 'Source';
+    final fullAddress = poi.fullAddress ?? poi.address;
+    final contacts = [
+      poi.phone,
+      ...poi.phones,
+      poi.website,
+      ...poi.websites,
+      poi.email,
+      ...poi.emails,
+    ]
+        .whereType<String>()
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet()
+        .toList();
+    final categories = poi.rubricNames.isNotEmpty
+        ? poi.rubricNames
+        : [if (poi.category != null) poi.category!];
 
     return Scaffold(
       backgroundColor: base,
@@ -52,6 +74,19 @@ class PoiDetailScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (poi.photoUrl != null || poi.photoUrls.isNotEmpty) ...[
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: Image.network(
+                          poi.photoUrl ?? poi.photoUrls.first,
+                          width: double.infinity,
+                          height: 180,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                     Text(
                       poi.description.trim().isEmpty
                           ? poi.name
@@ -64,6 +99,54 @@ class PoiDetailScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 14),
+                    if (fullAddress != null && fullAddress.trim().isNotEmpty)
+                      _InfoRow(
+                        icon: Icons.place_outlined,
+                        label: addressLabel,
+                        value: fullAddress,
+                      ),
+                    if (poi.rating != null)
+                      _InfoRow(
+                        icon: Icons.star_rounded,
+                        label: ratingLabel,
+                        value: poi.reviewsCount == null
+                            ? poi.rating!.toStringAsFixed(1)
+                            : '${poi.rating!.toStringAsFixed(1)} · ${poi.reviewsCount} ${locale == 'ru' ? 'отзывов' : 'reviews'}',
+                      ),
+                    if (poi.scheduleStatus != null &&
+                        poi.scheduleStatus!.trim().isNotEmpty)
+                      _InfoRow(
+                        icon: Icons.schedule_rounded,
+                        label: scheduleLabel,
+                        value: poi.scheduleStatus!,
+                      ),
+                    if (contacts.isNotEmpty)
+                      _InfoRow(
+                        icon: Icons.call_outlined,
+                        label: contactsLabel,
+                        value: contacts.take(3).join('\n'),
+                      ),
+                    if (categories.isNotEmpty)
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: categories.take(4).map((category) {
+                          return Chip(
+                            label: Text(category),
+                            backgroundColor: const Color(0xFFF4F6FC),
+                            side: BorderSide(color: base.withOpacity(0.08)),
+                          );
+                        }).toList(),
+                      ),
+                    if (poi.provider != null || poi.providerPlaceId != null)
+                      _InfoRow(
+                        icon: Icons.dataset_outlined,
+                        label: sourceLabel,
+                        value: [
+                          if (poi.provider != null) poi.provider!,
+                          if (poi.providerPlaceId != null) poi.providerPlaceId!,
+                        ].join(' · '),
+                      ),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -139,6 +222,59 @@ class PoiDetailScreen extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    const base = Color(0xFF062244);
+    const accent = Color(0xFFFAA916);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: accent, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: base.withOpacity(0.48),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: base.withOpacity(0.76),
+                    fontSize: 14,
+                    height: 1.3,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

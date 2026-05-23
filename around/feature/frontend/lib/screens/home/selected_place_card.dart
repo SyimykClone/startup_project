@@ -33,6 +33,51 @@ class _SelectedPoiCard extends StatelessWidget {
 
   bool get _hasRealPoi => selectedPoi != null && selectedPoi!.category != 'custom';
 
+  String? _firstNonEmpty(Iterable<String?> values) {
+    for (final value in values) {
+      final text = value?.trim();
+      if (text != null && text.isNotEmpty) return text;
+    }
+    return null;
+  }
+
+  String _bestAddress(Poi poi) {
+    final candidates = [
+      poi.fullAddress,
+      poi.address,
+      poi.addressComment,
+      poi.description,
+    ];
+    return _firstNonEmpty(candidates) ?? '';
+  }
+
+  String? _bestPhotoUrl(Poi poi) {
+    final candidates = [
+      poi.photoUrl,
+      ...poi.photoUrls,
+    ];
+    return _firstNonEmpty(candidates);
+  }
+
+  String? _bestCategory(Poi poi) {
+    if (poi.rubricNames.isNotEmpty) {
+      return poi.rubricNames.take(2).join(' · ');
+    }
+    return poi.category == null ? null : categoryText(poi.category!);
+  }
+
+  String? _bestContact(Poi poi) {
+    final candidates = [
+      poi.phone,
+      ...poi.phones,
+      poi.website,
+      ...poi.websites,
+      poi.email,
+      ...poi.emails,
+    ];
+    return _firstNonEmpty(candidates);
+  }
+
   String? _scheduleLabel(BuildContext context, Poi poi) {
     final raw = poi.scheduleStatus?.trim();
     if (raw == null || raw.isEmpty) return null;
@@ -87,7 +132,7 @@ class _SelectedPoiCard extends StatelessWidget {
   }
 
   Widget _thumbnail(Poi poi) {
-    final photoUrl = poi.photoUrl?.trim();
+    final photoUrl = _bestPhotoUrl(poi);
     if (photoUrl == null || photoUrl.isEmpty || !_hasRealPoi) {
       return const SizedBox.shrink();
     }
@@ -110,6 +155,10 @@ class _SelectedPoiCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final poi = selectedPoi;
     final scheduleLabel = poi == null ? null : _scheduleLabel(context, poi);
+    final address = poi == null ? '' : _bestAddress(poi);
+    final category = poi == null ? null : _bestCategory(poi);
+    final contact = poi == null ? null : _bestContact(poi);
+    final hasPhoto = poi != null && _bestPhotoUrl(poi) != null;
 
     return Positioned(
       left: 12,
@@ -163,7 +212,7 @@ class _SelectedPoiCard extends StatelessWidget {
                           if (poi != null) ...[
                             const SizedBox(height: 2),
                             Text(
-                              poi.address ?? poi.description,
+                              address,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
@@ -204,10 +253,10 @@ class _SelectedPoiCard extends StatelessWidget {
                                   ),
                               ],
                             ),
-                            if (poi.category != null) ...[
+                            if (category != null) ...[
                               const SizedBox(height: 3),
                               Text(
-                                categoryText(poi.category!),
+                                category,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
@@ -219,8 +268,8 @@ class _SelectedPoiCard extends StatelessWidget {
                             ],
                             if (poi.description.trim().isNotEmpty &&
                                 poi.description.trim() !=
-                                    (poi.address ?? '').trim() &&
-                                poi.photoUrl != null) ...[
+                                    address.trim() &&
+                                hasPhoto) ...[
                               const SizedBox(height: 3),
                               Text(
                                 poi.description,
@@ -230,6 +279,19 @@ class _SelectedPoiCard extends StatelessWidget {
                                   color: _MapScreenState._base.withOpacity(0.66),
                                   fontSize: 11.5,
                                   height: 1.2,
+                                ),
+                              ),
+                            ],
+                            if (contact != null && !hasPhoto) ...[
+                              const SizedBox(height: 3),
+                              Text(
+                                contact,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: _MapScreenState._base.withOpacity(0.62),
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ],

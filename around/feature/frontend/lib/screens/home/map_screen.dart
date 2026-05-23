@@ -661,7 +661,7 @@ class _MapScreenState extends State<MapScreen> {
       _activeDestination = targetIndex;
     });
 
-    await _showDestinationSheet(editIndex: targetIndex);
+    _focusMap(markerPosition, zoom: 17);
   }
 
   Future<void> _showDestinationSheet({int? editIndex}) async {

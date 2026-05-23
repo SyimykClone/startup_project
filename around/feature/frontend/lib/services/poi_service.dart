@@ -78,6 +78,39 @@ class PoiService {
     return earthRadiusM * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
   }
 
+  Poi _poiFrom2GisJson(Map<String, dynamic> json, {String? fallbackPlaceId}) {
+    final placeId = (json['id'] ?? json['provider_place_id'] ?? fallbackPlaceId)
+        ?.toString();
+    return Poi.fromJson({
+      ...json,
+      'id': -(placeId ?? json['name'].toString()).hashCode.abs(),
+      'google_place_id': placeId,
+      'provider': json['provider'] ?? '2gis',
+      'provider_place_id': placeId,
+      'category': 'twogis_place',
+      'description':
+          json['description'] ??
+          json['summary'] ??
+          json['full_address'] ??
+          json['address'] ??
+          json['category'] ??
+          '',
+      'address': json['address'] ?? json['full_address'],
+      'photo_url': json['photo_url'] ??
+          ((json['photo_urls'] is List && (json['photo_urls'] as List).isNotEmpty)
+              ? (json['photo_urls'] as List).first
+              : null),
+      'phone': json['phone'] ??
+          ((json['phones'] is List && (json['phones'] as List).isNotEmpty)
+              ? (json['phones'] as List).first
+              : null),
+      'website': json['website'] ??
+          ((json['websites'] is List && (json['websites'] as List).isNotEmpty)
+              ? (json['websites'] as List).first
+              : null),
+    });
+  }
+
   Future<List<Poi>> fetchPoiList() async {
     if (useMock) {
       await Future.delayed(const Duration(milliseconds: 200));
@@ -112,26 +145,7 @@ class PoiService {
     return data
         .map((e) => (e as Map).cast<String, dynamic>())
         .where(_isCleanExternalPlace)
-        .map((json) {
-          return Poi.fromJson({
-            'id': -json['id'].toString().hashCode.abs(),
-            'google_place_id': json['id']?.toString(),
-            'name': json['name'],
-            'description':
-                json['description'] ?? json['address'] ?? json['category'] ?? '',
-            'lat': json['lat'],
-            'lng': json['lng'],
-            'category': 'twogis_place',
-            'address': json['address'],
-            'rating': json['rating'],
-            'photo_url': json['photo_url'],
-            'distance_m': json['distance_m'],
-            'phone': json['phone'],
-            'website': json['website'],
-            'schedule_status': json['schedule_status'],
-            'reviews_count': json['reviews_count'],
-          });
-        })
+        .map(_poiFrom2GisJson)
         .toList();
   }
 
@@ -146,22 +160,7 @@ class PoiService {
       queryParameters: {'locale': locale},
     );
     final json = (res.data as Map).cast<String, dynamic>();
-    return Poi.fromJson({
-      'id': -placeId.hashCode.abs(),
-      'google_place_id': placeId,
-      'name': json['name'],
-      'description': json['description'] ?? json['address'] ?? '',
-      'lat': json['lat'],
-      'lng': json['lng'],
-      'category': 'twogis_place',
-      'address': json['address'],
-      'rating': json['rating'],
-      'photo_url': json['photo_url'],
-      'phone': json['phone'],
-      'website': json['website'],
-      'schedule_status': json['schedule_status'],
-      'reviews_count': json['reviews_count'],
-    });
+    return _poiFrom2GisJson(json, fallbackPlaceId: placeId);
   }
 
   Future<List<Poi>> fetch2GisNearbyPlaces({
@@ -204,26 +203,7 @@ class PoiService {
     return data
         .map((e) => (e as Map).cast<String, dynamic>())
         .where(_isCleanExternalPlace)
-        .map((json) {
-          return Poi.fromJson({
-            'id': -json['id'].toString().hashCode.abs(),
-            'google_place_id': json['id']?.toString(),
-            'name': json['name'],
-            'description':
-                json['description'] ?? json['address'] ?? json['category'] ?? '',
-            'lat': json['lat'],
-            'lng': json['lng'],
-            'category': 'twogis_place',
-            'address': json['address'],
-            'rating': json['rating'],
-            'photo_url': json['photo_url'],
-            'distance_m': json['distance_m'],
-            'phone': json['phone'],
-            'website': json['website'],
-            'schedule_status': json['schedule_status'],
-            'reviews_count': json['reviews_count'],
-          });
-        })
+        .map(_poiFrom2GisJson)
         .toList();
   }
 

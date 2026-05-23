@@ -72,11 +72,20 @@ class AuthState extends ChangeNotifier {
         await _loadMe();
       }
     } catch (e) {
+      await _clearLocalSession();
       _error = _humanizeDioError(e);
     } finally {
       _loading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> _clearLocalSession() async {
+    await _auth.logout();
+    _token = null;
+    _username = null;
+    _avatarUrl = null;
+    _userType = 'user';
   }
 
   Future<bool> login(String email, String pass) async {
