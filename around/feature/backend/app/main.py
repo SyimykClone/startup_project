@@ -5,8 +5,6 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.api.poi import router as poi_router
-from app.api.route import router as route_router
-from app.api.google_maps import router as google_maps_router
 from app.api.twogis import router as twogis_router
 from app.api.tours import router as tours_router
 from app.api.gamification import router as gamification_router
@@ -46,8 +44,6 @@ def create_app() -> FastAPI:
         await close_db()
 
     app.include_router(poi_router)
-    app.include_router(route_router)
-    app.include_router(google_maps_router)
     app.include_router(twogis_router)
     app.include_router(tours_router)
     app.include_router(gamification_router)

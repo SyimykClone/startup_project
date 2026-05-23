@@ -59,7 +59,7 @@ class _ArScreenState extends State<ArScreen> {
           SnackBar(
             content: Text(
               isRu
-                  ? 'Р СЏРґРѕРј РЅРµС‚ AR-РѕР±СЉРµРєС‚Р°. РџСЂРѕРІРµСЂСЊС‚Рµ РєРѕРѕСЂРґРёРЅР°С‚С‹ РѕР±СЉРµРєС‚Р° РІ Р±Р°Р·Рµ.'
+                  ? '\u0420\u044f\u0434\u043e\u043c \u043d\u0435\u0442 AR-\u043e\u0431\u044a\u0435\u043a\u0442\u0430. \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u044b \u043e\u0431\u044a\u0435\u043a\u0442\u0430 \u0432 \u0431\u0430\u0437\u0435.'
                   : 'No AR object nearby. Check object coordinates in the database.',
             ),
           ),
@@ -97,7 +97,11 @@ class _ArScreenState extends State<ArScreen> {
         setState(() => _loading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(isRu ? 'РЎРєР°РЅРёСЂРѕРІР°РЅРёРµ РѕС‚РјРµРЅРµРЅРѕ.' : 'Scan canceled.'),
+            content: Text(
+              isRu
+                  ? '\u0421\u043a\u0430\u043d\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435 \u043e\u0442\u043c\u0435\u043d\u0435\u043d\u043e.'
+                  : 'Scan canceled.',
+            ),
           ),
         );
         return;
@@ -115,7 +119,7 @@ class _ArScreenState extends State<ArScreen> {
       if (!mounted) return;
       setState(() => _loading = false);
       final message = isRu
-          ? 'РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РїСѓСЃС‚РёС‚СЊ AR-СЃРєР°РЅРёСЂРѕРІР°РЅРёРµ. РџСЂРѕРІРµСЂСЊС‚Рµ РєР°РјРµСЂСѓ Рё РіРµРѕР»РѕРєР°С†РёСЋ.'
+          ? '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u044c AR-\u0441\u043a\u0430\u043d\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435. \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u043a\u0430\u043c\u0435\u0440\u0443 \u0438 \u0433\u0435\u043e\u043b\u043e\u043a\u0430\u0446\u0438\u044e.'
           : AppErrorText.fromObject(context, e);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }
@@ -164,13 +168,19 @@ class _ArScreenState extends State<ArScreen> {
   @override
   Widget build(BuildContext context) {
     final isRu = _isRu;
-    final title = isRu ? 'AR-СЃРєР°РЅРёСЂРѕРІР°РЅРёРµ' : 'AR Scan';
+    final title = isRu
+        ? 'AR-\u0441\u043a\u0430\u043d\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435'
+        : 'AR Scan';
     final subtitle = isRu
-        ? 'РџРѕРґРѕР№РґРёС‚Рµ Рє РґРѕСЃС‚РѕРїСЂРёРјРµС‡Р°С‚РµР»СЊРЅРѕСЃС‚Рё, РЅР°РІРµРґРёС‚Рµ РєР°РјРµСЂСѓ Рё РїРѕР»СѓС‡РёС‚Рµ 3D-РјРѕРґРµР»СЊ СЃ РѕРїРёСЃР°РЅРёРµРј.'
+        ? '\u041f\u043e\u0434\u043e\u0439\u0434\u0438\u0442\u0435 \u043a \u0434\u043e\u0441\u0442\u043e\u043f\u0440\u0438\u043c\u0435\u0447\u0430\u0442\u0435\u043b\u044c\u043d\u043e\u0441\u0442\u0438, \u043d\u0430\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u0430\u043c\u0435\u0440\u0443 \u0438 \u043f\u043e\u043b\u0443\u0447\u0438\u0442\u0435 3D-\u043c\u043e\u0434\u0435\u043b\u044c \u0441 \u043e\u043f\u0438\u0441\u0430\u043d\u0438\u0435\u043c.'
         : 'Approach a landmark, scan it with camera, and view a 3D model.';
     final startLabel = _capturedImage == null
-        ? (isRu ? 'РЎРєР°РЅРёСЂРѕРІР°С‚СЊ РѕР±СЉРµРєС‚' : 'Scan object')
-        : (isRu ? 'РЎРєР°РЅРёСЂРѕРІР°С‚СЊ СЃРЅРѕРІР°' : 'Scan again');
+        ? (isRu
+            ? '\u0421\u043a\u0430\u043d\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u043e\u0431\u044a\u0435\u043a\u0442'
+            : 'Scan object')
+        : (isRu
+            ? '\u0421\u043a\u0430\u043d\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0441\u043d\u043e\u0432\u0430'
+            : 'Scan again');
 
     return SafeArea(
       child: Padding(
@@ -301,7 +311,9 @@ class _EmptyScanState extends StatelessWidget {
             const _ScannerPreviewFrame(),
             const SizedBox(height: 18),
             Text(
-              isRu ? 'РќР°РІРµРґРёС‚Рµ РєР°РјРµСЂСѓ РЅР° РѕР±СЉРµРєС‚' : 'Point camera at object',
+              isRu
+                  ? '\u041d\u0430\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u0430\u043c\u0435\u0440\u0443 \u043d\u0430 \u043e\u0431\u044a\u0435\u043a\u0442'
+                  : 'Point camera at object',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: _ArScreenState._base,
@@ -312,7 +324,7 @@ class _EmptyScanState extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               isRu
-                  ? 'РќР°Р¶РјРёС‚Рµ РєРЅРѕРїРєСѓ РІС‹С€Рµ, СЂР°Р·СЂРµС€РёС‚Рµ РґРѕСЃС‚СѓРї Рє РєР°РјРµСЂРµ Рё РЅР°С‡РЅРёС‚Рµ СЃРєР°РЅРёСЂРѕРІР°РЅРёРµ.'
+                  ? '\u041d\u0430\u0436\u043c\u0438\u0442\u0435 \u043a\u043d\u043e\u043f\u043a\u0443 \u0432\u044b\u0448\u0435, \u0440\u0430\u0437\u0440\u0435\u0448\u0438\u0442\u0435 \u0434\u043e\u0441\u0442\u0443\u043f \u043a \u043a\u0430\u043c\u0435\u0440\u0435 \u0438 \u043d\u0430\u0447\u043d\u0438\u0442\u0435 \u0441\u043a\u0430\u043d\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435.'
                   : 'Tap the button above to open camera and start scanning.',
               textAlign: TextAlign.center,
               style: TextStyle(color: _ArScreenState._base.withOpacity(0.7)),
@@ -507,10 +519,13 @@ class _ScanStatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scanTarget = target;
-    final title = scanTarget?.title ?? (isRu ? 'AR-РѕР±СЉРµРєС‚ РЅРµ РЅР°Р№РґРµРЅ' : 'No AR object found');
+    final title = scanTarget?.title ??
+        (isRu
+            ? 'AR-\u043e\u0431\u044a\u0435\u043a\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d'
+            : 'No AR object found');
     final subtitle = scanTarget == null
         ? (isRu
-            ? 'Р СЏРґРѕРј РЅРµС‚ РґРѕСЃС‚РѕРїСЂРёРјРµС‡Р°С‚РµР»СЊРЅРѕСЃС‚Рё СЃ AR-РјРѕРґРµР»СЊСЋ.'
+            ? '\u0420\u044f\u0434\u043e\u043c \u043d\u0435\u0442 \u0434\u043e\u0441\u0442\u043e\u043f\u0440\u0438\u043c\u0435\u0447\u0430\u0442\u0435\u043b\u044c\u043d\u043e\u0441\u0442\u0438 \u0441 AR-\u043c\u043e\u0434\u0435\u043b\u044c\u044e.'
             : 'There is no nearby landmark with an AR model.')
         : tooFar
             ? scanTarget.tooFarLabel(isRu)
@@ -594,10 +609,12 @@ class _BottomInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = isRu ? 'РљСЂР°С‚РєРѕРµ РѕРїРёСЃР°РЅРёРµ' : 'Short description';
+    final title = isRu
+        ? '\u041a\u0440\u0430\u0442\u043a\u043e\u0435 \u043e\u043f\u0438\u0441\u0430\u043d\u0438\u0435'
+        : 'Short description';
     final description = target?.description ??
         (isRu
-            ? 'AR-РґР°РЅРЅС‹Рµ РґР»СЏ Р±Р»РёР¶Р°Р№С€РµРіРѕ РѕР±СЉРµРєС‚Р° РЅРµ РЅР°Р№РґРµРЅС‹.'
+            ? 'AR-\u0434\u0430\u043d\u043d\u044b\u0435 \u0434\u043b\u044f \u0431\u043b\u0438\u0436\u0430\u0439\u0448\u0435\u0433\u043e \u043e\u0431\u044a\u0435\u043a\u0442\u0430 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u044b.'
             : 'AR data for the nearest object was not found.');
 
     return Container(
@@ -651,9 +668,11 @@ class _NoArObjectHint extends StatelessWidget {
   Widget build(BuildContext context) {
     return _CenteredHint(
       icon: Icons.search_off,
-      title: isRu ? 'AR-РѕР±СЉРµРєС‚ РЅРµ РЅР°Р№РґРµРЅ' : 'No AR object',
+      title: isRu
+          ? 'AR-\u043e\u0431\u044a\u0435\u043a\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d'
+          : 'No AR object',
       subtitle: isRu
-          ? 'Р’ Р±Р°Р·Рµ РґР°РЅРЅС‹С… РїРѕРєР° РЅРµС‚ Р±Р»РёР¶Р°Р№С€РµР№ РґРѕСЃС‚РѕРїСЂРёРјРµС‡Р°С‚РµР»СЊРЅРѕСЃС‚Рё.'
+          ? '\u0412 \u0431\u0430\u0437\u0435 \u0434\u0430\u043d\u043d\u044b\u0445 \u043f\u043e\u043a\u0430 \u043d\u0435\u0442 \u0431\u043b\u0438\u0436\u0430\u0439\u0448\u0435\u0439 \u0434\u043e\u0441\u0442\u043e\u043f\u0440\u0438\u043c\u0435\u0447\u0430\u0442\u0435\u043b\u044c\u043d\u043e\u0441\u0442\u0438.'
           : 'In the database there is no nearby landmark yet.',
     );
   }
@@ -669,7 +688,9 @@ class _TooFarHint extends StatelessWidget {
   Widget build(BuildContext context) {
     return _CenteredHint(
       icon: Icons.social_distance,
-      title: isRu ? 'РџРѕРґРѕР№РґРёС‚Рµ Р±Р»РёР¶Рµ' : 'Move closer',
+      title: isRu
+          ? '\u041f\u043e\u0434\u043e\u0439\u0434\u0438\u0442\u0435 \u0431\u043b\u0438\u0436\u0435'
+          : 'Move closer',
       subtitle: target.tooFarLabel(isRu),
     );
   }
@@ -685,7 +706,9 @@ class _MissingModelHint extends StatelessWidget {
   Widget build(BuildContext context) {
     return _CenteredHint(
       icon: Icons.view_in_ar_outlined,
-      title: isRu ? '3D-РјРѕРґРµР»СЊ РЅРµ РЅР°Р№РґРµРЅР°' : '3D model not found',
+      title: isRu
+          ? '3D-\u043c\u043e\u0434\u0435\u043b\u044c \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u0430'
+          : '3D model not found',
       subtitle: modelPath,
     );
   }
@@ -767,16 +790,18 @@ class _ArScanTarget {
   String distanceLabel(bool isRu) {
     if (distanceM >= 1000) {
       final km = (distanceM / 1000).toStringAsFixed(1);
-      return isRu ? 'Р Р°СЃСЃС‚РѕСЏРЅРёРµ: $km РєРј' : 'Distance: $km km';
+      return isRu
+          ? '\u0420\u0430\u0441\u0441\u0442\u043e\u044f\u043d\u0438\u0435: $km \u043a\u043c'
+          : 'Distance: $km km';
     }
     return isRu
-        ? 'Р Р°СЃСЃС‚РѕСЏРЅРёРµ: ${distanceM.toStringAsFixed(0)} Рј'
+        ? '\u0420\u0430\u0441\u0441\u0442\u043e\u044f\u043d\u0438\u0435: ${distanceM.toStringAsFixed(0)} \u043c'
         : 'Distance: ${distanceM.toStringAsFixed(0)} m';
   }
 
   String tooFarLabel(bool isRu) {
     return isRu
-        ? 'Р”Рѕ РѕР±СЉРµРєС‚Р° ${distanceM.toStringAsFixed(0)} Рј. РќСѓР¶РЅРѕ РїРѕРґРѕР№С‚Рё Р±Р»РёР¶Рµ ${radiusM} Рј.'
+        ? '\u0414\u043e \u043e\u0431\u044a\u0435\u043a\u0442\u0430 ${distanceM.toStringAsFixed(0)} \u043c. \u041d\u0443\u0436\u043d\u043e \u043f\u043e\u0434\u043e\u0439\u0442\u0438 \u0431\u043b\u0438\u0436\u0435 ${radiusM} \u043c.'
         : 'Object is ${distanceM.toStringAsFixed(0)} m away. Move within $radiusM m.';
   }
 }

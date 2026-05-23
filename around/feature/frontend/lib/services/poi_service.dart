@@ -390,9 +390,55 @@ class PoiService {
       );
       return Poi.fromJson((res.data as Map).cast<String, dynamic>());
     } on DioException catch (e) {
-      if (e.response?.statusCode == 404) return null;
+      if (e.response?.statusCode == 404) {
+        return _findNearestArPoiFromList(
+          lat: lat,
+          lng: lng,
+          maxDistanceM: maxDistanceM,
+        );
+      }
       rethrow;
     }
+  }
+
+  Future<Poi?> _findNearestArPoiFromList({
+    required double lat,
+    required double lng,
+    required int maxDistanceM,
+  }) async {
+    final arPois = (await fetchPoiList())
+        .where((poi) {
+          final modelAsset = poi.arModelAsset?.trim() ?? '';
+          return poi.arEnabled && modelAsset.isNotEmpty;
+        })
+        .toList();
+    if (arPois.isEmpty) return null;
+
+    arPois.sort((a, b) {
+      final aDistance = _distanceMeters(
+        fromLat: lat,
+        fromLng: lng,
+        toLat: a.latitude,
+        toLng: a.longitude,
+      );
+      final bDistance = _distanceMeters(
+        fromLat: lat,
+        fromLng: lng,
+        toLat: b.latitude,
+        toLng: b.longitude,
+      );
+      return aDistance.compareTo(bDistance);
+    });
+
+    final nearest = arPois.first;
+    final distance = _distanceMeters(
+      fromLat: lat,
+      fromLng: lng,
+      toLat: nearest.latitude,
+      toLng: nearest.longitude,
+    );
+    if (distance > maxDistanceM) return null;
+    return nearest;
   }
 
   Future<Poi> createCustomPoiFromCoordinates({

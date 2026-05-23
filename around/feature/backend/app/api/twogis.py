@@ -1,6 +1,12 @@
+import math
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.deps.auth import require_auth
+from app.models.route import RouteHistoryItem, RouteRequest, RouteResponse
+from app.services.gamification_repo import register_route_built
+from app.services.route_history_repo import list_route_history, save_route_history
 from app.services.twogis_service import (
     TwoGisError,
     categories_list,
@@ -25,6 +31,131 @@ def _handle_twogis_error(e: Exception) -> HTTPException:
     if isinstance(e, TwoGisError):
         return HTTPException(status_code=400, detail=str(e))
     return HTTPException(status_code=500, detail=f"Unexpected error: {e}")
+
+
+def _distance_m(from_lat: float, from_lng: float, to_lat: float, to_lng: float) -> float:
+    radius = 6371000
+    lat1 = math.radians(from_lat)
+    lat2 = math.radians(to_lat)
+    d_lat = math.radians(to_lat - from_lat)
+    d_lng = math.radians(to_lng - from_lng)
+    a = (
+        math.sin(d_lat / 2) ** 2
+        + math.cos(lat1) * math.cos(lat2) * math.sin(d_lng / 2) ** 2
+    )
+    return 2 * radius * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def _number_from(obj: dict[str, Any], keys: tuple[str, ...]) -> float | None:
+    for key in keys:
+        value = obj.get(key)
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str):
+            try:
+                return float(value)
+            except ValueError:
+                continue
+    return None
+
+
+def _point_to_coordinate(point: Any) -> list[float] | None:
+    if isinstance(point, dict):
+        lat = point.get("lat") or point.get("latitude")
+        lng = point.get("lon") or point.get("lng") or point.get("longitude")
+        if isinstance(lat, (int, float)) and isinstance(lng, (int, float)):
+            return [float(lng), float(lat)]
+    if isinstance(point, (list, tuple)) and len(point) >= 2:
+        first, second = point[0], point[1]
+        if isinstance(first, (int, float)) and isinstance(second, (int, float)):
+            return [float(first), float(second)]
+    return None
+
+
+def _extract_coordinates(route: dict[str, Any]) -> list[list[float]]:
+    geometry = route.get("geometry")
+    if isinstance(geometry, dict):
+        coordinates = geometry.get("coordinates")
+        if isinstance(coordinates, list):
+            parsed = [_point_to_coordinate(item) for item in coordinates]
+            return [item for item in parsed if item is not None]
+    if isinstance(geometry, list):
+        parsed = [_point_to_coordinate(item) for item in geometry]
+        return [item for item in parsed if item is not None]
+
+    for key in ("points", "path", "polyline"):
+        points = route.get(key)
+        if isinstance(points, list):
+            parsed = [_point_to_coordinate(item) for item in points]
+            coordinates = [item for item in parsed if item is not None]
+            if coordinates:
+                return coordinates
+    return []
+
+
+def _first_route(raw: Any) -> dict[str, Any]:
+    if isinstance(raw, list) and raw and isinstance(raw[0], dict):
+        return raw[0]
+    if not isinstance(raw, dict):
+        return {}
+    result = raw.get("result")
+    containers = [raw]
+    if isinstance(result, dict):
+        containers.insert(0, result)
+    elif isinstance(result, list) and result and isinstance(result[0], dict):
+        return result[0]
+
+    for container in containers:
+        for key in ("routes", "items"):
+            routes = container.get(key)
+            if isinstance(routes, list) and routes and isinstance(routes[0], dict):
+                return routes[0]
+    return {}
+
+
+def _route_response_from_2gis(
+    raw: Any,
+    req: RouteRequest,
+) -> RouteResponse:
+    route = _first_route(raw)
+    summary = route.get("summary") if isinstance(route.get("summary"), dict) else {}
+
+    distance = (
+        _number_from(route, ("distance", "distance_m", "total_distance", "length"))
+        or _number_from(summary, ("distance", "distance_m", "total_distance", "length"))
+    )
+    duration = (
+        _number_from(route, ("duration", "duration_s", "total_duration", "time"))
+        or _number_from(summary, ("duration", "duration_s", "total_duration", "time"))
+    )
+
+    coordinates = _extract_coordinates(route)
+    if len(coordinates) < 2:
+        coordinates = [
+            [req.from_lng, req.from_lat],
+            [req.to_lng, req.to_lat],
+        ]
+
+    fallback_distance = _distance_m(req.from_lat, req.from_lng, req.to_lat, req.to_lng)
+    if distance is None:
+        distance = fallback_distance
+    if duration is None:
+        speed_mps = 1.25 if req.profile == "walking" else 8.0
+        duration = distance / speed_mps
+
+    return RouteResponse(
+        distance_m=float(distance),
+        duration_s=float(duration),
+        geometry={"type": "LineString", "coordinates": coordinates},
+    )
+
+
+def _transport_for_profile(profile: str) -> str:
+    if profile == "walking":
+        return "pedestrian"
+    if profile == "cycling":
+        return "bicycle"
+    return "car"
 
 
 @router.get("/places/search")
@@ -176,6 +307,37 @@ async def twogis_directions(
         raise _handle_twogis_error(e)
 
 
+@router.post("/directions", response_model=RouteResponse)
+async def twogis_directions_route(
+    req: RouteRequest,
+    user_id: int = Depends(require_auth),
+):
+    try:
+        if req.profile == "transit":
+            raw = await public_transport(
+                from_lat=req.from_lat,
+                from_lng=req.from_lng,
+                to_lat=req.to_lat,
+                to_lng=req.to_lng,
+                locale="ru",
+            )
+        else:
+            raw = await routing(
+                from_lat=req.from_lat,
+                from_lng=req.from_lng,
+                to_lat=req.to_lat,
+                to_lng=req.to_lng,
+                transport=_transport_for_profile(req.profile),
+                locale="ru",
+            )
+        route = _route_response_from_2gis(raw, req)
+        await save_route_history(user_id, req, route)
+        await register_route_built(user_id)
+        return route
+    except Exception as e:
+        raise _handle_twogis_error(e)
+
+
 @router.get("/public-transport")
 async def twogis_public_transport(
     from_lat: float = Query(..., ge=-90, le=90),
@@ -192,6 +354,17 @@ async def twogis_public_transport(
             to_lng=to_lng,
             locale=locale,
         )
+    except Exception as e:
+        raise _handle_twogis_error(e)
+
+
+@router.get("/directions/history", response_model=list[RouteHistoryItem])
+async def twogis_route_history(
+    limit: int = Query(default=10, ge=1, le=50),
+    user_id: int = Depends(require_auth),
+):
+    try:
+        return await list_route_history(user_id, limit=limit)
     except Exception as e:
         raise _handle_twogis_error(e)
 

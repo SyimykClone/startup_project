@@ -13,7 +13,7 @@ from app.services.poi_repo import (
     remove_favorite_poi,
     remove_visited_poi,
 )
-from app.services.google_maps_service import GoogleMapsError, reverse_geocode
+from app.services.twogis_service import TwoGisError, geocode
 from app.services.gamification_repo import register_new_place_visit
 from app.deps.auth import require_auth
 
@@ -21,6 +21,35 @@ router = APIRouter(
     prefix="/api/poi",
     tags=["poi"],
 )
+
+
+def _place_from_twogis_geocode(data: dict, lat: float, lng: float) -> dict:
+    items = data.get("result", {}).get("items", []) or []
+    if not items:
+        return {
+            "name": "Selected point",
+            "description": f"{lat:.5f}, {lng:.5f}",
+            "place_id": None,
+        }
+
+    item = items[0]
+    name = (
+        item.get("name")
+        or item.get("full_name")
+        or item.get("address_name")
+        or "Selected point"
+    )
+    description = (
+        item.get("full_address_name")
+        or item.get("address_name")
+        or item.get("address_comment")
+        or f"{lat:.5f}, {lng:.5f}"
+    )
+    return {
+        "name": str(name),
+        "description": str(description),
+        "place_id": item.get("id"),
+    }
 
 
 @router.get("", response_model=List[Poi])
@@ -107,18 +136,19 @@ async def poi_create_custom_from_coordinates(
     user_id: int = Depends(require_auth),
 ):
     try:
-        place = await reverse_geocode(
+        data = await geocode(
             lat=payload.lat,
             lng=payload.lng,
-            language=payload.language,
+            locale="ru_KG" if payload.language == "ru" else "en_RU",
         )
+        place = _place_from_twogis_geocode(data, payload.lat, payload.lng)
         return await create_custom_poi_from_coordinates(
             users_id=user_id,
             name=place["name"],
-            description=place["formatted_address"],
+            description=place["description"],
             lat=payload.lat,
             lng=payload.lng,
             google_place_id=place.get("place_id"),
         )
-    except GoogleMapsError as e:
+    except TwoGisError as e:
         raise HTTPException(status_code=400, detail=str(e))
