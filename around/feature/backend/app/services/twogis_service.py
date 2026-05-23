@@ -85,6 +85,47 @@ def _is_clean_name(name: str) -> bool:
     return not any(fragment in lowered for fragment in blocked)
 
 
+TWOGIS_DETAIL_FIELDS = (
+    "items.point,items.address,items.address_name,items.full_address_name,"
+    "items.rubrics,items.description,items.summary,items.reviews,"
+    "items.external_content,items.flags"
+)
+
+
+def _extract_photo_url(item: dict) -> str | None:
+    for content in item.get("external_content") or []:
+        if isinstance(content, dict):
+            photo_url = content.get("main_photo_url")
+            if isinstance(photo_url, str) and photo_url.strip():
+                return photo_url.strip().replace("http://", "https://")
+    return None
+
+
+def _extract_rating(item: dict) -> float | None:
+    reviews = item.get("reviews") or {}
+    value = (
+        reviews.get("general_rating")
+        or reviews.get("org_rating")
+        or reviews.get("rating")
+    )
+    if value is None:
+        return None
+    try:
+        return round(float(value), 1)
+    except (TypeError, ValueError):
+        return None
+
+
+def _extract_description(item: dict, category: str, address: str) -> str:
+    summary = item.get("summary") or {}
+    summary_text = summary.get("text") if isinstance(summary, dict) else None
+    description = item.get("description")
+    for value in (summary_text, description, category, address):
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
 def _normalize_item(item: dict, lat: float | None = None, lng: float | None = None) -> dict | None:
     point = item.get("point") or {}
     item_lat = point.get("lat")
@@ -97,14 +138,23 @@ def _normalize_item(item: dict, lat: float | None = None, lng: float | None = No
     category = item.get("type") or "place"
     if rubrics and isinstance(rubrics[0], dict):
         category = rubrics[0].get("name") or category
+    address = (
+        item.get("address_name")
+        or item.get("full_address_name")
+        or item.get("address_comment")
+        or ""
+    )
 
     normalized = {
         "id": item.get("id"),
         "name": name,
-        "address": item.get("address_name") or item.get("address_comment") or "",
+        "address": address,
+        "description": _extract_description(item, category, address),
         "lat": float(item_lat),
         "lng": float(item_lng),
         "category": category,
+        "rating": _extract_rating(item),
+        "photo_url": _extract_photo_url(item),
         "source": "2gis",
     }
     if lat is not None and lng is not None:
@@ -127,7 +177,8 @@ async def places_search(
         "q": query,
         "locale": locale,
         "page_size": page_size,
-        "fields": "items.point,items.address_name,items.rubrics",
+        "fields": TWOGIS_DETAIL_FIELDS,
+        "search_nearby": "true",
     }
     if lat is not None and lng is not None:
         params["location"] = f"{lng},{lat}"
@@ -151,7 +202,7 @@ async def geocode(
     params: dict[str, Any] = {
         "locale": locale,
         "radius": radius_m,
-        "fields": "items.point,items.address_name,items.rubrics",
+        "fields": TWOGIS_DETAIL_FIELDS,
     }
     if query:
         params["q"] = query
@@ -159,6 +210,21 @@ async def geocode(
         params["lat"] = lat
         params["lon"] = lng
     return await _get_json(f"{CATALOG_BASE_URL}/3.0/items/geocode", params)
+
+
+async def place_by_id(place_id: str, locale: str = "ru_KG") -> dict | None:
+    data = await _get_json(
+        f"{CATALOG_BASE_URL}/3.0/items/byid",
+        {
+            "id": place_id,
+            "locale": locale,
+            "fields": TWOGIS_DETAIL_FIELDS,
+        },
+    )
+    items = data.get("result", {}).get("items", []) or []
+    if not items:
+        return None
+    return _normalize_item(items[0])
 
 
 async def suggest(
@@ -231,7 +297,17 @@ async def public_transport(
 
 
 async def resolve_tap(lat: float, lng: float, radius_m: int = 80, locale: str = "ru_RU") -> list[dict]:
-    queries = ["store", "cafe", "restaurant", "pharmacy", "bank", "hotel", "museum", "park"]
+    queries = [
+        "магазин",
+        "кафе",
+        "ресторан",
+        "аптека",
+        "банк",
+        "отель",
+        "музей",
+        "парк",
+        "супермаркет",
+    ]
     results_by_id: dict[str, dict] = {}
 
     for query in queries:
@@ -249,5 +325,18 @@ async def resolve_tap(lat: float, lng: float, radius_m: int = 80, locale: str = 
             item_id = str(item.get("id") or item["name"])
             results_by_id[item_id] = item
 
-    results = sorted(results_by_id.values(), key=lambda item: item["distance_m"])
+    detailed_results = []
+    for item in results_by_id.values():
+        item_id = item.get("id")
+        if item_id:
+            try:
+                detailed = await place_by_id(str(item_id), locale=locale)
+                if detailed:
+                    detailed["distance_m"] = item.get("distance_m")
+                    item = {**item, **detailed}
+            except TwoGisError:
+                pass
+        detailed_results.append(item)
+
+    results = sorted(detailed_results, key=lambda item: item["distance_m"])
     return results[:5]
