@@ -6,6 +6,7 @@ import '../../core/i18n/l10n.dart';
 import '../../core/network/api_client.dart';
 import '../../core/router/app_router.dart';
 import '../../models/tour.dart';
+import '../../models/tour_demo_details.dart';
 import '../../services/tour_service.dart';
 import '../../state/auth_state.dart';
 import '../../utils/app_error_text.dart';
@@ -84,13 +85,23 @@ class _ToursScreenState extends State<ToursScreen> {
           ? await _tourService!.fetchMine()
           : await _tourService!.fetchAll();
       if (!mounted) return;
-      setState(() => _tours = data);
+      setState(() {
+        _tours = isBusiness ? data : _withDemoTours(data);
+      });
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = AppErrorText.fromObject(context, e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  List<Tour> _withDemoTours(List<Tour> apiTours) {
+    final existingTitles = apiTours.map((tour) => tour.title.toLowerCase()).toSet();
+    final demos = demoTourDetails
+        .where((details) => !existingTitles.contains(details.tour.title.toLowerCase()))
+        .map((details) => details.tour);
+    return [...demos, ...apiTours];
   }
 
   Future<void> _openTourEditor({Tour? tour}) async {
@@ -177,6 +188,7 @@ class _ToursScreenState extends State<ToursScreen> {
   }
 
   void _openTourDetails(Tour tour, bool isBusiness) {
+    final demoDetails = demoDetailsForTour(tour);
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -187,13 +199,17 @@ class _ToursScreenState extends State<ToursScreen> {
         isBusiness: isBusiness,
         priceLabel: _priceLabel(tour),
         difficultyLabel: _difficultyLabel(tour.difficulty),
+        demoDetails: demoDetails,
         onBook: isBusiness ? null : () => _openBookingSheet(tour),
         onOpenMap: () {
           Navigator.pop(context);
           Navigator.pushNamed(
             context,
             Routes.map,
-            arguments: const AppShellArgs(initialIndex: 2),
+            arguments: AppShellArgs(
+              initialIndex: 2,
+              initialTourPois: demoDetails?.routePois ?? const [],
+            ),
           );
         },
       ),
@@ -201,6 +217,7 @@ class _ToursScreenState extends State<ToursScreen> {
   }
 
   void _openBookingSheet(Tour tour) {
+    final demoDetails = demoDetailsForTour(tour);
     Navigator.pop(context);
     showModalBottomSheet<void>(
       context: context,
@@ -210,14 +227,15 @@ class _ToursScreenState extends State<ToursScreen> {
       builder: (_) => _BookingSheet(
         tour: tour,
         priceLabel: _priceLabel(tour),
-        onConfirmed: (people) {
+        demoDetails: demoDetails,
+        onConfirmed: (request) {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
                 _isRu
-                    ? 'Заявка на тур отправлена. Участников: $people'
-                    : 'Tour request sent. Guests: $people',
+                    ? 'Заявка отправлена: ${request.people} участн., ${request.dateLabel}'
+                    : 'Tour request sent: ${request.people} guests, ${request.dateLabel}',
               ),
             ),
           );
@@ -766,6 +784,7 @@ class _TourDetailsSheet extends StatelessWidget {
     required this.isBusiness,
     required this.priceLabel,
     required this.difficultyLabel,
+    required this.demoDetails,
     required this.onBook,
     required this.onOpenMap,
   });
@@ -774,6 +793,7 @@ class _TourDetailsSheet extends StatelessWidget {
   final bool isBusiness;
   final String priceLabel;
   final String difficultyLabel;
+  final TourDemoDetails? demoDetails;
   final VoidCallback? onBook;
   final VoidCallback onOpenMap;
 
@@ -821,6 +841,11 @@ class _TourDetailsSheet extends StatelessWidget {
               runSpacing: 8,
               children: [
                 _InfoChip(icon: Icons.payments_outlined, text: priceLabel),
+                if (demoDetails != null)
+                  _InfoChip(
+                    icon: Icons.local_offer_outlined,
+                    text: 'вместо ${demoDetails!.oldPrice.toStringAsFixed(0)} сом',
+                  ),
                 _InfoChip(
                   icon: Icons.schedule_outlined,
                   text: '${tour.durationDays} ${l10n.daysUnit}',
@@ -836,10 +861,41 @@ class _TourDetailsSheet extends StatelessWidget {
                 _InfoChip(icon: Icons.speed_outlined, text: difficultyLabel),
               ],
             ),
+            if (demoDetails != null) ...[
+              const SizedBox(height: 14),
+              _DemoTourPromo(details: demoDetails!),
+            ],
             const SizedBox(height: 18),
             _SheetTitle(isRu ? 'Программа тура' : 'Tour itinerary'),
             const SizedBox(height: 10),
             ..._buildItinerary(context, tour),
+            if (demoDetails != null) ...[
+              const SizedBox(height: 16),
+              _SheetTitle(isRu ? 'Реальный маршрут' : 'Real route'),
+              const SizedBox(height: 10),
+              ...demoDetails!.stops.asMap().entries.map(
+                    (entry) => _TimelineItem(
+                      number: entry.key + 1,
+                      title: entry.value.name,
+                      text: entry.value.description,
+                    ),
+                  ),
+              const SizedBox(height: 16),
+              _SheetTitle(isRu ? 'Даты' : 'Dates'),
+              const SizedBox(height: 8),
+              _TourDatesWrap(dates: demoDetails!.dates),
+              const SizedBox(height: 12),
+              _SheetTitle(isRu ? 'Включено' : 'Included'),
+              const SizedBox(height: 8),
+              ...demoDetails!.included.map((text) => _BenefitRow(text: text)),
+              const SizedBox(height: 12),
+              _SheetTitle(isRu ? 'Вас ожидает' : 'Highlights'),
+              const SizedBox(height: 8),
+              ...demoDetails!.expectations.map((text) => _BenefitRow(text: text)),
+              const SizedBox(height: 8),
+              _BenefitRow(text: demoDetails!.installment),
+              _BenefitRow(text: 'Бронь: ${demoDetails!.contactPhone}'),
+            ],
             const SizedBox(height: 16),
             _SheetTitle(isRu ? 'Условия' : 'Terms'),
             const SizedBox(height: 8),
@@ -901,28 +957,141 @@ class _TourDetailsSheet extends StatelessWidget {
   }
 }
 
+class _DemoTourPromo extends StatelessWidget {
+  const _DemoTourPromo({required this.details});
+
+  final TourDemoDetails details;
+
+  @override
+  Widget build(BuildContext context) {
+    final isRu = Localizations.localeOf(context).languageCode == 'ru';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: ToursScreen.base,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: ToursScreen.accent,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.local_fire_department_rounded, color: ToursScreen.base),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isRu ? 'Спец. акция ${details.promoUntil}' : 'Special offer',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  isRu
+                      ? 'На каждую дату всего по 5 мест'
+                      : 'Only 5 seats available for each date',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.72),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TourDatesWrap extends StatelessWidget {
+  const _TourDatesWrap({required this.dates});
+
+  final Map<String, List<int>> dates;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: dates.entries.map((entry) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: ToursScreen.soft,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: ToursScreen.base.withOpacity(0.08)),
+          ),
+          child: Text(
+            '${entry.key}: ${entry.value.join(', ')}',
+            style: const TextStyle(
+              color: ToursScreen.base,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
 class _BookingSheet extends StatefulWidget {
   const _BookingSheet({
     required this.tour,
     required this.priceLabel,
+    required this.demoDetails,
     required this.onConfirmed,
   });
 
   final Tour tour;
   final String priceLabel;
-  final ValueChanged<int> onConfirmed;
+  final TourDemoDetails? demoDetails;
+  final ValueChanged<_TourBookingRequest> onConfirmed;
 
   @override
   State<_BookingSheet> createState() => _BookingSheetState();
 }
 
+class _TourBookingRequest {
+  const _TourBookingRequest({
+    required this.people,
+    required this.dateLabel,
+  });
+
+  final int people;
+  final String dateLabel;
+}
+
 class _BookingSheetState extends State<_BookingSheet> {
   int _people = 1;
+  String? _selectedDateLabel;
+
+  List<String> get _dateOptions {
+    final details = widget.demoDetails;
+    if (details == null) return const [];
+    return details.dates.entries
+        .expand((entry) => entry.value.map((day) => '${entry.key}, $day'))
+        .toList(growable: false);
+  }
 
   @override
   Widget build(BuildContext context) {
     final isRu = Localizations.localeOf(context).languageCode == 'ru';
     final total = widget.tour.price * _people;
+    final dateOptions = _dateOptions;
+    _selectedDateLabel ??= dateOptions.isNotEmpty ? dateOptions.first : null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
       child: Column(
@@ -939,12 +1108,73 @@ class _BookingSheetState extends State<_BookingSheet> {
           ),
           const SizedBox(height: 8),
           Text(
-            widget.tour.title,
+            '${widget.tour.title} • ${widget.priceLabel}',
             style: TextStyle(
               color: ToursScreen.base.withOpacity(0.72),
               fontWeight: FontWeight.w700,
             ),
           ),
+          if (widget.demoDetails != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: ToursScreen.base,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isRu
+                        ? 'На каждую дату всего по 5 мест'
+                        : 'Only 5 seats available for each date',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${widget.demoDetails!.installment}\n${isRu ? 'Для брони' : 'Booking'}: ${widget.demoDetails!.contactPhone}',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.72),
+                      height: 1.25,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (dateOptions.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Text(
+              isRu ? 'Дата поездки' : 'Tour date',
+              style: const TextStyle(
+                color: ToursScreen.base,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: _selectedDateLabel,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.event_available_outlined),
+              ),
+              items: dateOptions
+                  .map(
+                    (date) => DropdownMenuItem(
+                      value: date,
+                      child: Text(date),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) => setState(() => _selectedDateLabel = value),
+            ),
+          ],
           const SizedBox(height: 14),
           Container(
             padding: const EdgeInsets.all(12),
@@ -997,7 +1227,12 @@ class _BookingSheetState extends State<_BookingSheet> {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: () => widget.onConfirmed(_people),
+              onPressed: () => widget.onConfirmed(
+                _TourBookingRequest(
+                  people: _people,
+                  dateLabel: _selectedDateLabel ?? (isRu ? 'дата не выбрана' : 'date not selected'),
+                ),
+              ),
               icon: const Icon(Icons.send_outlined),
               label: Text(isRu ? 'Отправить заявку' : 'Send request'),
             ),

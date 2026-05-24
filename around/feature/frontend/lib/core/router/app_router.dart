@@ -28,10 +28,12 @@ class AuthRoleArgs {
 class AppShellArgs {
   final int initialIndex;
   final Poi? initialPoi;
+  final List<Poi> initialTourPois;
 
   const AppShellArgs({
     this.initialIndex = 2,
     this.initialPoi,
+    this.initialTourPois = const [],
   });
 }
 
@@ -67,6 +69,7 @@ class AppRouter {
           builder: (_) => AppShellScreen(
             initialIndex: shellArgs?.initialIndex ?? 2,
             initialPoi: shellArgs?.initialPoi,
+            initialTourPois: shellArgs?.initialTourPois ?? const [],
           ),
         );
 
