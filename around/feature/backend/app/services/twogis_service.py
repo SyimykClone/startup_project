@@ -513,6 +513,7 @@ async def routing(
         "transport": transport,
         "route_mode": "fastest",
         "traffic_mode": "jam",
+        "output": "detailed",
         "locale": locale,
     }
     return await _post_json(f"{ROUTING_BASE_URL}/routing/7.0.0/global", body)

@@ -79,6 +79,79 @@ def _point_to_coordinate(point: Any) -> list[float] | None:
     return None
 
 
+def _linestring_to_coordinates(value: Any) -> list[list[float]]:
+    if not isinstance(value, str):
+        return []
+    text = value.strip()
+    if not text.upper().startswith("LINESTRING"):
+        return []
+    start = text.find("(")
+    end = text.rfind(")")
+    if start < 0 or end <= start:
+        return []
+
+    coordinates: list[list[float]] = []
+    for raw_point in text[start + 1 : end].split(","):
+        parts = raw_point.strip().split()
+        if len(parts) < 2:
+            continue
+        try:
+            lng = float(parts[0])
+            lat = float(parts[1])
+        except ValueError:
+            continue
+        coordinates.append([lng, lat])
+    return coordinates
+
+
+def _selection_coordinates_deep(value: Any) -> list[list[float]]:
+    if isinstance(value, str):
+        return _linestring_to_coordinates(value)
+
+    if isinstance(value, list):
+        coordinates: list[list[float]] = []
+        for item in value:
+            item_coordinates = _selection_coordinates_deep(item)
+            if item_coordinates:
+                if coordinates and coordinates[-1] == item_coordinates[0]:
+                    coordinates.extend(item_coordinates[1:])
+                else:
+                    coordinates.extend(item_coordinates)
+        return coordinates
+
+    if isinstance(value, dict):
+        coordinates: list[list[float]] = []
+        preferred_keys = (
+            "begin_pedestrian_path",
+            "maneuvers",
+            "outcoming_path",
+            "end_pedestrian_path",
+            "segments",
+            "geometry",
+            "selection",
+            "walking_path",
+            "transport_path",
+            "path",
+        )
+        for key in preferred_keys:
+            if key not in value:
+                continue
+            item_coordinates = _selection_coordinates_deep(value[key])
+            if item_coordinates:
+                if coordinates and coordinates[-1] == item_coordinates[0]:
+                    coordinates.extend(item_coordinates[1:])
+                else:
+                    coordinates.extend(item_coordinates)
+        if coordinates:
+            return coordinates
+        for key, item in value.items():
+            if key not in preferred_keys:
+                item_coordinates = _selection_coordinates_deep(item)
+                if item_coordinates:
+                    return item_coordinates
+    return []
+
+
 def _extract_coordinates(route: Any) -> list[list[float]]:
     if not isinstance(route, dict):
         return []
@@ -196,6 +269,10 @@ def _coordinate_lists_deep(value: Any) -> list[list[list[float]]]:
 
 
 def _coordinates_deep(raw: Any) -> list[list[float]]:
+    selection_coordinates = _selection_coordinates_deep(raw)
+    if len(selection_coordinates) >= 2:
+        return selection_coordinates
+
     deep_candidates = _coordinate_lists_deep(raw)
     if deep_candidates:
         return max(deep_candidates, key=len)
@@ -267,7 +344,11 @@ def _route_response_from_2gis(
         or _first_number_deep(raw, ("duration", "duration_s", "total_duration", "time"))
     )
 
-    coordinates = _extract_coordinates(route)
+    coordinates = _selection_coordinates_deep(route)
+    if len(coordinates) < 2:
+        coordinates = _selection_coordinates_deep(raw)
+    if len(coordinates) < 2:
+        coordinates = _extract_coordinates(route)
     if len(coordinates) < 2:
         coordinates = _coordinates_deep(raw)
     coordinates = _normalize_route_coordinates(coordinates, req)
