@@ -45,10 +45,117 @@ class _DestinationItem {
   double? durationS;
 }
 
+class _TwoGisTap {
+  const _TwoGisTap({required this.position, this.objectId});
+
+  final LatLng position;
+  final String? objectId;
+}
+
+class _NearbyCategory {
+  const _NearbyCategory({
+    required this.type,
+    required this.icon,
+    required this.ruTitle,
+    required this.enTitle,
+    required this.ruSubtitle,
+    required this.enSubtitle,
+  });
+
+  final String type;
+  final IconData icon;
+  final String ruTitle;
+  final String enTitle;
+  final String ruSubtitle;
+  final String enSubtitle;
+}
+
 class _MapScreenState extends State<MapScreen> {
   static const _accent = Color(0xFFFAA916);
   static const _base = Color(0xFF151E3F);
   static const _modes = ['walking', 'driving', 'transit'];
+  static const _nearbyCategories = [
+    _NearbyCategory(
+      type: 'tourist_attraction',
+      icon: Icons.account_balance_rounded,
+      ruTitle: 'Места',
+      enTitle: 'Sights',
+      ruSubtitle: 'Памятники и интересные точки',
+      enSubtitle: 'Landmarks and places',
+    ),
+    _NearbyCategory(
+      type: 'food',
+      icon: Icons.restaurant_rounded,
+      ruTitle: 'Еда',
+      enTitle: 'Food',
+      ruSubtitle: 'Где поесть рядом',
+      enSubtitle: 'Places to eat',
+    ),
+    _NearbyCategory(
+      type: 'coffee',
+      icon: Icons.local_cafe_rounded,
+      ruTitle: 'Кофе',
+      enTitle: 'Coffee',
+      ruSubtitle: 'Кофейни и кафе',
+      enSubtitle: 'Coffee shops and cafes',
+    ),
+    _NearbyCategory(
+      type: 'shop',
+      icon: Icons.storefront_rounded,
+      ruTitle: 'Магазины',
+      enTitle: 'Shops',
+      ruSubtitle: 'Покупки поблизости',
+      enSubtitle: 'Nearby shopping',
+    ),
+    _NearbyCategory(
+      type: 'supermarket',
+      icon: Icons.shopping_basket_rounded,
+      ruTitle: 'Продукты',
+      enTitle: 'Groceries',
+      ruSubtitle: 'Супермаркеты и маркеты',
+      enSubtitle: 'Markets and groceries',
+    ),
+    _NearbyCategory(
+      type: 'transport',
+      icon: Icons.directions_bus_rounded,
+      ruTitle: 'Транспорт',
+      enTitle: 'Transport',
+      ruSubtitle: 'Остановки и транспорт',
+      enSubtitle: 'Stops and transit',
+    ),
+    _NearbyCategory(
+      type: 'pharmacy',
+      icon: Icons.local_pharmacy_rounded,
+      ruTitle: 'Аптеки',
+      enTitle: 'Pharmacies',
+      ruSubtitle: 'Аптеки поблизости',
+      enSubtitle: 'Medicine nearby',
+    ),
+    _NearbyCategory(
+      type: 'atm',
+      icon: Icons.payments_rounded,
+      ruTitle: 'Банкоматы',
+      enTitle: 'ATMs',
+      ruSubtitle: 'Наличные и банки',
+      enSubtitle: 'Cash and banks',
+    ),
+    _NearbyCategory(
+      type: 'lodging',
+      icon: Icons.hotel_rounded,
+      ruTitle: 'Отели',
+      enTitle: 'Hotels',
+      ruSubtitle: 'Где остановиться',
+      enSubtitle: 'Places to stay',
+    ),
+    _NearbyCategory(
+      type: 'park',
+      icon: Icons.park_rounded,
+      ruTitle: 'Парки',
+      enTitle: 'Parks',
+      ruSubtitle: 'Прогулки и отдых',
+      enSubtitle: 'Walks and rest',
+    ),
+  ];
 
   final _mapKey = GlobalKey<_TwoGisMapViewState>();
   String _twogisApiKey = '';
@@ -148,6 +255,8 @@ class _MapScreenState extends State<MapScreen> {
         return _isRu ? 'Достопримечательности' : 'Sights';
       case 'food':
         return _isRu ? 'Где поесть' : 'Food';
+      case 'coffee':
+        return _isRu ? 'Кофе' : 'Coffee';
       case 'cafe':
         return _isRu ? 'Кафе' : 'Cafe';
       case 'restaurant':
@@ -162,6 +271,16 @@ class _MapScreenState extends State<MapScreen> {
         return _isRu ? 'Аптеки' : 'Pharmacies';
       case 'shop':
         return _isRu ? 'Магазины' : 'Shops';
+      case 'supermarket':
+        return _isRu ? 'Продукты' : 'Groceries';
+      case 'transport':
+        return _isRu ? 'Транспорт' : 'Transport';
+      case 'atm':
+        return _isRu ? 'Банкоматы' : 'ATMs';
+      case 'gas_station':
+        return _isRu ? 'АЗС' : 'Gas stations';
+      case 'hospital':
+        return _isRu ? 'Больницы' : 'Hospitals';
       default:
         return type;
     }
@@ -537,7 +656,8 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  Future<void> _onMapTap(LatLng position) async {
+  Future<void> _onMapTap(_TwoGisTap tap) async {
+    final position = tap.position;
     final l10n = context.l10n;
     final fallbackPoi = Poi(
       id: _nextTempPoiId--,
@@ -570,36 +690,64 @@ class _MapScreenState extends State<MapScreen> {
     Poi selectedPoi = fallbackPoi;
     try {
       final locale = Localizations.localeOf(context).languageCode;
-      final twoGisCandidates = await _poiService.resolveTapWith2Gis(
-        lat: position.latitude,
-        lng: position.longitude,
-        radiusM: 35,
-        locale: locale == 'ru' ? 'ru_KG' : 'en_RU',
-      );
-      final preciseCandidates = twoGisCandidates.where((poi) {
-        final distance = Geolocator.distanceBetween(
-          position.latitude,
-          position.longitude,
-          poi.latitude,
-          poi.longitude,
-        );
-        return distance <= 35;
-      }).toList();
-      selectedPoi = preciseCandidates.isNotEmpty
-          ? preciseCandidates.first
-          : await _poiService.createCustomPoiFromCoordinates(
-                lat: position.latitude,
-                lng: position.longitude,
-                language: locale,
-              );
-      final placeId = selectedPoi.googlePlaceId;
-      if (selectedPoi.category == 'twogis_place' &&
-          placeId != null &&
-          placeId.isNotEmpty) {
-        selectedPoi = await _poiService.fetch2GisPlaceDetails(
-          placeId: placeId,
+      final objectId = tap.objectId;
+      if (objectId != null && objectId.isNotEmpty) {
+        try {
+          selectedPoi = await _poiService.fetch2GisPlaceDetails(
+            placeId: objectId,
+            locale: locale == 'ru' ? 'ru_KG' : 'en_RU',
+          );
+        } catch (_) {
+          selectedPoi = fallbackPoi;
+        }
+      }
+      if (selectedPoi.category == 'custom') {
+        final twoGisCandidates = await _poiService.resolveTapWith2Gis(
+          lat: position.latitude,
+          lng: position.longitude,
+          radiusM: 90,
           locale: locale == 'ru' ? 'ru_KG' : 'en_RU',
         );
+        final preciseCandidates = twoGisCandidates.where((poi) {
+          final distance = Geolocator.distanceBetween(
+            position.latitude,
+            position.longitude,
+            poi.latitude,
+            poi.longitude,
+          );
+          return distance <= 90;
+        }).toList()
+          ..sort((a, b) {
+            final distanceA = Geolocator.distanceBetween(
+              position.latitude,
+              position.longitude,
+              a.latitude,
+              a.longitude,
+            );
+            final distanceB = Geolocator.distanceBetween(
+              position.latitude,
+              position.longitude,
+              b.latitude,
+              b.longitude,
+            );
+            return distanceA.compareTo(distanceB);
+          });
+        selectedPoi = preciseCandidates.isNotEmpty
+            ? preciseCandidates.first
+            : await _poiService.createCustomPoiFromCoordinates(
+                  lat: position.latitude,
+                  lng: position.longitude,
+                  language: locale,
+                );
+        final placeId = selectedPoi.googlePlaceId;
+        if (selectedPoi.category == 'twogis_place' &&
+            placeId != null &&
+            placeId.isNotEmpty) {
+          selectedPoi = await _poiService.fetch2GisPlaceDetails(
+            placeId: placeId,
+            locale: locale == 'ru' ? 'ru_KG' : 'en_RU',
+          );
+        }
       }
     } catch (e) {
       try {
@@ -892,6 +1040,82 @@ class _MapScreenState extends State<MapScreen> {
     return mode == 'walking' ? 6 : 5;
   }
 
+  double _routeEndpointScore(List<LatLng> points) {
+    final userPos = _userPos;
+    final activeIndex = _activeDestination;
+    if (userPos == null ||
+        activeIndex == null ||
+        activeIndex >= _destinations.length ||
+        points.isEmpty) {
+      return double.infinity;
+    }
+
+    final destination = _destinations[activeIndex].poi;
+    final first = points.first;
+    final last = points.last;
+    final startError = Geolocator.distanceBetween(
+      userPos.latitude,
+      userPos.longitude,
+      first.latitude,
+      first.longitude,
+    );
+    final finishError = Geolocator.distanceBetween(
+      destination.latitude,
+      destination.longitude,
+      last.latitude,
+      last.longitude,
+    );
+    return startError + finishError;
+  }
+
+  double _activeRouteDistanceM() {
+    final userPos = _userPos;
+    final activeIndex = _activeDestination;
+    if (userPos == null ||
+        activeIndex == null ||
+        activeIndex >= _destinations.length) {
+      return 0;
+    }
+    final destination = _destinations[activeIndex].poi;
+    return Geolocator.distanceBetween(
+      userPos.latitude,
+      userPos.longitude,
+      destination.latitude,
+      destination.longitude,
+    );
+  }
+
+  List<LatLng> _normalizeRoutePoints(List<LatLng> points) {
+    if (points.length <= 2) return const [];
+
+    final swappedPoints = points
+        .map((point) => LatLng(point.longitude, point.latitude))
+        .toList(growable: false);
+    final directScore = _routeEndpointScore(points);
+    final swappedScore = _routeEndpointScore(swappedPoints);
+    final bestPoints = directScore <= swappedScore ? points : swappedPoints;
+    final bestScore = directScore <= swappedScore ? directScore : swappedScore;
+    final directDistance = _activeRouteDistanceM();
+    final allowedError =
+        directDistance * 0.45 > 250 ? directDistance * 0.45 : 250.0;
+
+    if (bestScore > allowedError) return const [];
+    return bestPoints;
+  }
+
+  void _showRouteGeometryProblem() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _isRu
+              ? '2GIS не вернул корректную линию маршрута. Линия скрыта, чтобы не показывать неверный путь.'
+              : '2GIS returned an invalid route line. The line is hidden to avoid showing a wrong path.',
+        ),
+      ),
+    );
+  }
+
   void _drawRoute(
     RouteResponse resp, {
     bool animate = true,
@@ -912,13 +1136,23 @@ class _MapScreenState extends State<MapScreen> {
       return;
     }
 
-    final coords = (resp.geometry['coordinates'] as List)
-        .map((c) => c as List)
+    final rawCoordinates = resp.geometry['coordinates'];
+    if (rawCoordinates is! List) {
+      setState(() => _polylines = <Polyline>{});
+      _showRouteGeometryProblem();
+      return;
+    }
+
+    final rawPoints = rawCoordinates
+        .whereType<List>()
+        .where((c) => c.length >= 2 && c[0] is num && c[1] is num)
         .map((c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()))
-        .toList();
+        .toList(growable: false);
+    final coords = _normalizeRoutePoints(rawPoints);
 
     if (coords.length < 2) {
       setState(() => _polylines = <Polyline>{});
+      _showRouteGeometryProblem();
       return;
     }
 
@@ -1201,6 +1435,7 @@ class _MapScreenState extends State<MapScreen> {
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (context) => _RouteHistorySheet(
         title: _historyTitle(),
         emptyText: _emptyHistoryText(),
@@ -1226,27 +1461,15 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _openNearbyFiltersSheet() async {
-    const nearbyTypes = [
-      'tourist_attraction',
-      'food',
-      'cafe',
-      'restaurant',
-      'lodging',
-      'museum',
-      'park',
-      'pharmacy',
-      'shop',
-    ];
-
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (context) => _NearbyFiltersSheet(
         title: _nearbyTitle(),
-        nearbyTypes: nearbyTypes,
+        categories: _nearbyCategories,
         selectedType: _selectedNearbyType,
         loading: _placesLoading,
-        typeText: _nearbyTypeText,
         onSelected: (type) {
           Navigator.pop(context);
           _load2GisNearby(type);
@@ -1259,6 +1482,7 @@ class _MapScreenState extends State<MapScreen> {
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (context) => _RoutesSheet(
         destinations: _destinations,
         modeText: _modeText,

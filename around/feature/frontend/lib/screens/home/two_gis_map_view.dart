@@ -19,7 +19,7 @@ class _TwoGisMapView extends StatefulWidget {
   final Set<Polyline> polylines;
   final LatLng? userPosition;
   final VoidCallback onMapReady;
-  final ValueChanged<LatLng> onTap;
+  final ValueChanged<_TwoGisTap> onTap;
   final ValueChanged<String> onMarkerTap;
 
   @override
@@ -49,7 +49,14 @@ class _TwoGisMapViewState extends State<_TwoGisMapView> {
           if (type == 'tap') {
             final lat = (payload['lat'] as num).toDouble();
             final lng = (payload['lng'] as num).toDouble();
-            widget.onTap(LatLng(lat, lng));
+            final rawObjectId = payload['objectId'];
+            final objectId = rawObjectId == null ? null : rawObjectId.toString();
+            widget.onTap(
+              _TwoGisTap(
+                position: LatLng(lat, lng),
+                objectId: objectId == null || objectId.isEmpty ? null : objectId,
+              ),
+            );
           }
           if (type == 'markerTap') {
             widget.onMarkerTap(payload['id'].toString());
@@ -184,7 +191,17 @@ class _TwoGisMapViewState extends State<_TwoGisMapView> {
     map.on('click', function(event) {
       const coords = normalizeCoords(event.lngLat || event.coordinates);
       if (!coords || Number.isNaN(coords.lng) || Number.isNaN(coords.lat)) return;
-      post({ type: 'tap', lng: coords.lng, lat: coords.lat });
+      const target = event.target || event.targetData || event.object || event.data || {};
+      const properties = target.properties || target.data || target;
+      const objectId =
+        target.id ||
+        target.objectId ||
+        target.itemId ||
+        properties.id ||
+        properties.object_id ||
+        properties.item_id ||
+        null;
+      post({ type: 'tap', lng: coords.lng, lat: coords.lat, objectId: objectId });
     });
 
     window.moveTo = function(lng, lat, zoom) {
