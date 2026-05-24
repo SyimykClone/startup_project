@@ -28,13 +28,16 @@ async def _get_json(url: str, params: dict[str, Any]) -> Any:
         if res.status_code == 400 and "fields" in params:
             safe_params = {
                 **params,
-                "fields": (
-                    "items.point,items.address,items.address_name,"
-                    "items.full_address_name,items.rubrics,items.description,"
-                    "items.summary,items.reviews,items.photos,items.flags"
-                ),
+                "fields": "items.point,items.address_name,items.full_address_name,items.rubrics",
             }
             res = await client.get(url, params=safe_params)
+        if res.status_code == 400:
+            minimal_params = {
+                key: value
+                for key, value in params.items()
+                if key not in {"fields", "search_nearby"}
+            }
+            res = await client.get(url, params=minimal_params)
     if res.status_code != 200:
         raise TwoGisError(f"2GIS HTTP error {res.status_code}: {res.text}")
     data = res.json()
@@ -42,7 +45,22 @@ async def _get_json(url: str, params: dict[str, Any]) -> Any:
         return data
     code = data.get("meta", {}).get("code")
     if code is not None and code != 200:
-        raise TwoGisError(f"2GIS API failed: {code}")
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            retry_params = {
+                key: value
+                for key, value in params.items()
+                if key not in {"fields", "search_nearby"}
+            }
+            retry_res = await client.get(url, params=retry_params)
+        if retry_res.status_code != 200:
+            raise TwoGisError(f"2GIS HTTP error {retry_res.status_code}: {retry_res.text}")
+        retry_data = retry_res.json()
+        if isinstance(retry_data, list):
+            return retry_data
+        retry_code = retry_data.get("meta", {}).get("code")
+        if retry_code is not None and retry_code != 200:
+            raise TwoGisError(f"2GIS API failed: {retry_code}")
+        return retry_data
     return data
 
 
@@ -408,8 +426,7 @@ async def places_search(
         "q": query,
         "locale": locale,
         "page_size": page_size,
-        "fields": TWOGIS_DETAIL_FIELDS,
-        "search_nearby": "true",
+        "fields": "items.point,items.address_name,items.full_address_name,items.rubrics",
     }
     if lat is not None and lng is not None:
         params["location"] = f"{lng},{lat}"
@@ -449,6 +466,40 @@ async def geocode(
         params["lat"] = lat
         params["lon"] = lng
     return await _get_json(f"{CATALOG_BASE_URL}/3.0/items/geocode", params)
+
+
+async def objects_near_point(
+    lat: float,
+    lng: float,
+    radius_m: int = 80,
+    locale: str = "ru_RU",
+    page_size: int = 10,
+) -> list[dict]:
+    data = await _get_json(
+        f"{CATALOG_BASE_URL}/3.0/items/geocode",
+        {
+            "lat": lat,
+            "lon": lng,
+            "radius": radius_m,
+            "locale": locale,
+            "fields": "items.point,items.address_name,items.full_address_name,items.rubrics",
+        },
+    )
+    items = _items_from_response(data)
+    results = [
+        normalized
+        for item in items
+        if (
+            normalized := _normalize_item(
+                item,
+                lat=lat,
+                lng=lng,
+                include_raw=True,
+            )
+        )
+        is not None
+    ]
+    return sorted(results, key=lambda item: item.get("distance_m", radius_m + 1))
 
 
 async def place_by_id(place_id: str, locale: str = "ru_KG") -> dict | None:
@@ -549,6 +600,21 @@ async def resolve_tap(lat: float, lng: float, radius_m: int = 80, locale: str = 
         "супермаркет",
     ]
     results_by_id: dict[str, dict] = {}
+
+    try:
+        for item in await objects_near_point(
+            lat=lat,
+            lng=lng,
+            radius_m=radius_m,
+            locale=locale,
+            page_size=10,
+        ):
+            if item.get("distance_m", radius_m + 1) > radius_m:
+                continue
+            item_id = str(item.get("id") or item["name"])
+            results_by_id[item_id] = item
+    except TwoGisError:
+        pass
 
     for query in SAFE_RESOLVE_TAP_QUERIES:
         items = await places_search(
