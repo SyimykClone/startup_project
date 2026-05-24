@@ -21,8 +21,22 @@ def _require_api_key() -> str:
     return key
 
 
+def _safe_locale(locale: Any) -> str:
+    value = str(locale or "").lower()
+    if value.startswith("en"):
+        return "en_US"
+    return "ru_RU"
+
+
+def _normalize_params(params: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(params)
+    if "locale" in normalized:
+        normalized["locale"] = _safe_locale(normalized["locale"])
+    return normalized
+
+
 async def _get_json(url: str, params: dict[str, Any]) -> Any:
-    params = {"key": _require_api_key(), **params}
+    params = {"key": _require_api_key(), **_normalize_params(params)}
     async with httpx.AsyncClient(timeout=20.0) as client:
         res = await client.get(url, params=params)
         if res.status_code == 400 and "fields" in params:
@@ -65,6 +79,7 @@ async def _get_json(url: str, params: dict[str, Any]) -> Any:
 
 
 async def _post_json(url: str, body: dict[str, Any]) -> Any:
+    body = _normalize_params(body)
     async with httpx.AsyncClient(timeout=25.0) as client:
         res = await client.post(
             url,
