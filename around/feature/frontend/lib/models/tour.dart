@@ -10,7 +10,7 @@ class Tour {
   final String difficulty;
   final bool isPublished;
 
-  Tour({
+  const Tour({
     required this.id,
     required this.businessUserId,
     required this.title,

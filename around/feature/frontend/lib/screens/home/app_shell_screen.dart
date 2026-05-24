@@ -13,10 +13,12 @@ class AppShellScreen extends StatefulWidget {
     super.key,
     this.initialIndex = 2,
     this.initialPoi,
+    this.initialTourPois = const [],
   });
 
   final int initialIndex;
   final Poi? initialPoi;
+  final List<Poi> initialTourPois;
 
   @override
   State<AppShellScreen> createState() => _AppShellScreenState();
@@ -59,7 +61,10 @@ class _AppShellScreenState extends State<AppShellScreen> {
                 children: [
                   FavoritesScreen(refreshTick: _favoritesRefreshTick),
                   const ArScreen(),
-                  MapScreen(initialPoi: widget.initialPoi),
+                  MapScreen(
+                    initialPoi: widget.initialPoi,
+                    initialTourPois: widget.initialTourPois,
+                  ),
                   ToursScreen(refreshTick: _toursRefreshTick),
                   ProfileScreen(refreshTick: _profileRefreshTick),
                 ],

@@ -28,9 +28,14 @@ part 'selected_place_card.dart';
 part 'two_gis_map_view.dart';
 
 class MapScreen extends StatefulWidget {
-  const MapScreen({super.key, this.initialPoi});
+  const MapScreen({
+    super.key,
+    this.initialPoi,
+    this.initialTourPois = const [],
+  });
 
   final Poi? initialPoi;
+  final List<Poi> initialTourPois;
 
   @override
   State<MapScreen> createState() => _MapScreenState();
@@ -189,6 +194,7 @@ class _MapScreenState extends State<MapScreen> {
 
   bool _servicesInitialized = false;
   bool _initialPoiHandled = false;
+  bool _initialTourHandled = false;
 
   String _modeText(String mode) {
     switch (mode) {
@@ -448,6 +454,7 @@ class _MapScreenState extends State<MapScreen> {
     await _loadPoiAndDrawMarkers();
     await _loadFavorites();
     await _loadRouteHistory();
+    await _openInitialTourIfNeeded();
     await _openInitialPoiIfNeeded();
   }
 
@@ -1366,6 +1373,7 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _openInitialPoiIfNeeded() async {
     final initialPoi = widget.initialPoi;
+    if (widget.initialTourPois.isNotEmpty) return;
     if (_initialPoiHandled || initialPoi == null) return;
     _initialPoiHandled = true;
 
@@ -1385,6 +1393,39 @@ class _MapScreenState extends State<MapScreen> {
 
     setState(() => _selectedPoi = initialPoi);
     _focusMap(LatLng(initialPoi.latitude, initialPoi.longitude), zoom: 15);
+  }
+
+  Future<void> _openInitialTourIfNeeded() async {
+    final stops = widget.initialTourPois;
+    if (_initialTourHandled || stops.isEmpty) return;
+    _initialTourHandled = true;
+
+    final markers = <Marker>{};
+    for (var i = 0; i < stops.length; i++) {
+      final poi = stops[i];
+      markers.add(
+        Marker(
+          markerId: MarkerId('tour_stop_${poi.id}'),
+          position: LatLng(poi.latitude, poi.longitude),
+          infoWindow: InfoWindow(
+            title: '${i + 1}. ${poi.name}',
+            snippet: poi.description,
+          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+          onTap: () => setState(() => _selectedPoi = poi),
+        ),
+      );
+    }
+
+    final points = stops
+        .map((poi) => LatLng(poi.latitude, poi.longitude))
+        .toList(growable: false);
+    setState(() {
+      _markers = {..._markers, ...markers};
+      _selectedPoi = stops.first;
+      _polylines = <Polyline>{};
+    });
+    _focusMap(points.first, zoom: 7);
   }
 
   Future<void> _toggleFavorite() async {
