@@ -2,6 +2,7 @@ import math
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 
 from app.deps.auth import require_auth
 from app.models.route import RouteHistoryItem, RouteRequest, RouteResponse
@@ -25,6 +26,16 @@ router = APIRouter(
     tags=["2gis"],
     dependencies=[Depends(require_auth)],
 )
+
+
+class TourRoutePoint(BaseModel):
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+
+
+class TourRouteRequest(BaseModel):
+    points: list[TourRoutePoint] = Field(min_length=2, max_length=12)
+    profile: str = Field(default="driving", pattern="^(walking|driving)$")
 
 
 def _handle_twogis_error(e: Exception) -> HTTPException:
@@ -575,6 +586,66 @@ async def twogis_directions_route(
         raise _handle_twogis_error(e)
 
 
+@router.post("/tour-route", response_model=RouteResponse)
+async def twogis_tour_route(
+    payload: TourRouteRequest,
+    _user_id: int = Depends(require_auth),
+):
+    try:
+        total_distance = 0.0
+        total_duration = 0.0
+        all_coordinates: list[list[float]] = []
+        points = payload.points
+        for index in range(len(points) - 1):
+            start = points[index]
+            finish = points[index + 1]
+            req = RouteRequest(
+                from_lat=start.lat,
+                from_lng=start.lng,
+                to_lat=finish.lat,
+                to_lng=finish.lng,
+                profile=payload.profile,
+                destination_name=f"Tour stop {index + 2}",
+            )
+            raw = await routing(
+                from_lat=req.from_lat,
+                from_lng=req.from_lng,
+                to_lat=req.to_lat,
+                to_lng=req.to_lng,
+                transport=_transport_for_profile(req.profile),
+                locale="ru",
+            )
+            segment = _route_response_from_2gis(raw, req)
+            coordinates = segment.geometry.get("coordinates")
+            if not isinstance(coordinates, list) or len(coordinates) < 2:
+                continue
+            total_distance += segment.distance_m
+            total_duration += segment.duration_s
+            if all_coordinates and all_coordinates[-1] == coordinates[0]:
+                all_coordinates.extend(coordinates[1:])
+            else:
+                all_coordinates.extend(coordinates)
+
+        if len(all_coordinates) < 2:
+            raise TwoGisError("2GIS did not return tour route geometry")
+
+        return RouteResponse(
+            distance_m=total_distance,
+            duration_s=total_duration,
+            geometry={
+                "type": "LineString",
+                "coordinates": all_coordinates,
+                "fallback": False,
+                "provider": "2gis",
+                "profile": payload.profile,
+            },
+        )
+    except Exception as e:
+        if isinstance(e, TwoGisError):
+            return []
+        raise _handle_twogis_error(e)
+
+
 @router.get("/public-transport")
 async def twogis_public_transport(
     from_lat: float = Query(..., ge=-90, le=90),
@@ -626,4 +697,6 @@ async def twogis_resolve_tap(
             locale=locale,
         )
     except Exception as e:
+        if isinstance(e, TwoGisError):
+            return []
         raise _handle_twogis_error(e)
