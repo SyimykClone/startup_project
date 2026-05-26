@@ -1,4 +1,5 @@
 import '../core/network/api_client.dart';
+import '../models/poi.dart';
 import '../models/route_models.dart';
 
 class RouteService {
@@ -26,6 +27,30 @@ class RouteService {
     }
 
     final res = await api.dio.post('/api/2gis/directions', data: req.toJson());
+    return RouteResponse.fromJson((res.data as Map).cast<String, dynamic>());
+  }
+
+  Future<RouteResponse> buildTourRoute(List<Poi> stops) async {
+    if (useMock || stops.length < 2) {
+      return RouteResponse(
+        distanceM: 0,
+        durationS: 0,
+        geometry: {
+          'type': 'LineString',
+          'coordinates': stops.map((p) => [p.longitude, p.latitude]).toList(),
+        },
+      );
+    }
+
+    final res = await api.dio.post(
+      '/api/2gis/tour-route',
+      data: {
+        'profile': 'driving',
+        'points': stops
+            .map((poi) => {'lat': poi.latitude, 'lng': poi.longitude})
+            .toList(),
+      },
+    );
     return RouteResponse.fromJson((res.data as Map).cast<String, dynamic>());
   }
 

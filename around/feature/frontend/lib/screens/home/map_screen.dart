@@ -385,6 +385,11 @@ class _MapScreenState extends State<MapScreen> {
             ? 'Сервер ещё не поддерживает этот запрос. Обновите backend-деплой и попробуйте снова.'
             : 'The server does not support this request yet. Update backend deployment and try again.';
       }
+      if (statusCode == 400) {
+        return _isRu
+            ? '2GIS не нашёл данные для этого запроса. Попробуйте другую категорию или точку.'
+            : '2GIS did not find data for this request. Try another category or point.';
+      }
     }
     return AppErrorText.fromObject(context, error);
   }
@@ -1426,6 +1431,43 @@ class _MapScreenState extends State<MapScreen> {
       _polylines = <Polyline>{};
     });
     _focusMap(points.first, zoom: 7);
+    await _drawInitialTourRoute(stops);
+  }
+
+  Future<void> _drawInitialTourRoute(List<Poi> stops) async {
+    if (stops.length < 2) return;
+    try {
+      final route = await _routeService.buildTourRoute(stops);
+      final rawCoordinates = route.geometry['coordinates'];
+      if (rawCoordinates is! List) return;
+      final routePoints = rawCoordinates
+          .whereType<List>()
+          .where((c) => c.length >= 2 && c[0] is num && c[1] is num)
+          .map((c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()))
+          .toList(growable: false);
+      if (routePoints.length < 2 || !mounted) return;
+      setState(() {
+        _polylines = {
+          Polyline(
+            polylineId: const PolylineId('tour_route'),
+            points: routePoints,
+            color: _accent,
+            width: 5,
+          ),
+        };
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isRu
+                ? 'Не удалось построить линию тура через 2GIS. Остановки показаны на карте.'
+                : 'Could not build the tour route with 2GIS. Stops are shown on the map.',
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _toggleFavorite() async {
