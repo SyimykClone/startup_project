@@ -50,8 +50,16 @@ class TourDemoDetails {
   final String installment;
 
   List<Poi> get routePois {
+    if (stops.length <= 2) {
+      return [
+        for (var i = 0; i < stops.length; i++) stops[i].toPoi(tour.id, i),
+      ];
+    }
+
+    // Tours map now uses only start/end points to avoid multi-stop routing.
     return [
-      for (var i = 0; i < stops.length; i++) stops[i].toPoi(tour.id, i),
+      stops.first.toPoi(tour.id, 0),
+      stops.last.toPoi(tour.id, stops.length - 1),
     ];
   }
 }
@@ -72,7 +80,7 @@ const demoTourDetails = <TourDemoDetails>[
       isPublished: true,
     ),
     oldPrice: 7500,
-    promoUntil: 'до 31 мая',
+    promoUntil: 'до 5 июня',
     included: [
       'трансфер',
       'питание: ужин, завтрак, обед',
@@ -137,7 +145,7 @@ const demoTourDetails = <TourDemoDetails>[
       isPublished: true,
     ),
     oldPrice: 12500,
-    promoUntil: 'до 31 мая',
+    promoUntil: 'до 5 июня',
     included: [
       'трансфер',
       'питание: 2 ужина, 2 завтрака, 1 ланч-бокс',
@@ -200,7 +208,7 @@ const demoTourDetails = <TourDemoDetails>[
       isPublished: true,
     ),
     oldPrice: 18000,
-    promoUntil: 'до 31 мая',
+    promoUntil: 'до 5 июня',
     included: [
       'трансфер',
       'спецтрансфер Safari Tour',
