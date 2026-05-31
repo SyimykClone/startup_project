@@ -1,4 +1,5 @@
 from pathlib import Path
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -52,3 +53,7 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
+# Configure logging: show debug for 2GIS client
+logging.basicConfig(level=logging.INFO)
+logging.getLogger("twogis").setLevel(logging.DEBUG)
