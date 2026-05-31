@@ -24,7 +24,6 @@ from app.services.twogis_service import (
 router = APIRouter(
     prefix="/api/2gis",
     tags=["2gis"],
-    dependencies=[Depends(require_auth)],
 )
 
 

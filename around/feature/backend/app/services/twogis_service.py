@@ -42,7 +42,8 @@ def _normalize_params(params: dict[str, Any]) -> dict[str, Any]:
 
 async def _get_json(url: str, params: dict[str, Any]) -> Any:
     params = {"key": _require_api_key(), **_normalize_params(params)}
-    async with httpx.AsyncClient(timeout=20.0) as client:
+    headers = {"User-Agent": "around-backend/1.0"}
+    async with httpx.AsyncClient(timeout=20.0, headers=headers) as client:
         res = await client.get(url, params=params)
         if res.status_code == 400 and "fields" in params:
             safe_params = {
@@ -85,7 +86,8 @@ async def _get_json(url: str, params: dict[str, Any]) -> Any:
 
 async def _post_json(url: str, body: dict[str, Any]) -> Any:
     body = _normalize_params(body)
-    async with httpx.AsyncClient(timeout=25.0) as client:
+    headers = {"User-Agent": "around-backend/1.0"}
+    async with httpx.AsyncClient(timeout=25.0, headers=headers) as client:
         res = await client.post(
             url,
             params={"key": _require_api_key()},
