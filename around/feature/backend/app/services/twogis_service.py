@@ -2,6 +2,7 @@ import math
 from typing import Any
 
 import httpx
+import asyncio
 import logging
 
 from app.core.config import settings
@@ -44,32 +45,96 @@ def _normalize_params(params: dict[str, Any]) -> dict[str, Any]:
 async def _get_json(url: str, params: dict[str, Any]) -> Any:
     params = {"key": _require_api_key(), **_normalize_params(params)}
     headers = {"User-Agent": "around-backend/1.0"}
+
     # Do not log the API key
     params_for_log = {k: v for k, v in params.items() if k.lower() != "key"}
     logging.getLogger("twogis").debug("2GIS GET %s params=%s", url, params_for_log)
+
+    attempt = 0
+    max_attempts = 3
+    backoff_base = 0.5
+    last_res = None
+
     async with httpx.AsyncClient(timeout=20.0, headers=headers) as client:
-        res = await client.get(url, params=params)
-    logging.getLogger("twogis").debug("2GIS response %s -> %s", res.status_code, res.text[:1000])
-        if res.status_code == 400 and "fields" in params:
-            safe_params = {
-                **params,
-                "fields": TWOGIS_SEARCH_FIELDS,
-            }
-            res = await client.get(url, params=safe_params)
-            logging.getLogger("twogis").debug("2GIS retry-with-safe-fields %s -> %s", res.status_code, res.text[:1000])
-        if res.status_code == 400:
-            minimal_params = {
-                key: value
-                for key, value in params.items()
-                if key not in {"fields", "search_nearby"}
-            }
-            res = await client.get(url, params=minimal_params)
-            logging.getLogger("twogis").debug("2GIS retry-with-minimal %s -> %s", res.status_code, res.text[:1000])
+        while attempt < max_attempts:
+            attempt += 1
+            try:
+                res = await client.get(url, params=params)
+            except Exception as exc:
+                logging.getLogger("twogis").warning("2GIS request exception: %s", exc)
+                if attempt >= max_attempts:
+                    raise TwoGisError(f"2GIS request failed: {exc}")
+                await asyncio.sleep(backoff_base * attempt)
+                continue
+
+            last_res = res
+            logging.getLogger("twogis").debug("2GIS response attempt=%s %s -> %s", attempt, res.status_code, (res.text or "")[:1000])
+
+            # Retry on rate limit / server errors
+            if res.status_code == 429 or 500 <= res.status_code < 600:
+                if attempt >= max_attempts:
+                    break
+                await asyncio.sleep(backoff_base * attempt)
+                continue
+
+            # If 400, try fallback strategies: safe fields already handled below,
+            # additionally try switching 'location' -> 'lat'/'lon' for some endpoints
+            if res.status_code == 400:
+                # First fallback: if 'fields' present, try with TWOGIS_SEARCH_FIELDS
+                if "fields" in params and params.get("fields") != TWOGIS_SEARCH_FIELDS:
+                    params_alt = {**params, "fields": TWOGIS_SEARCH_FIELDS}
+                    logging.getLogger("twogis").debug("2GIS retry-with-safe-fields attempt=%s params=%s", attempt, {k: v for k, v in params_alt.items() if k.lower() != "key"})
+                    res = await client.get(url, params=params_alt)
+                    logging.getLogger("twogis").debug("2GIS retry-with-safe-fields result %s -> %s", res.status_code, (res.text or "")[:1000])
+                    last_res = res
+                    if res.status_code == 200:
+                        break
+                # Second fallback: if 'location' in params, try splitting into lat/lon
+                if "location" in params:
+                    loc = params.get("location")
+                    try:
+                        lng_str, lat_str = str(loc).split(",")
+                        params_alt = {k: v for k, v in params.items() if k != "location"}
+                        params_alt["lat"] = lat_str
+                        params_alt["lon"] = lng_str
+                        logging.getLogger("twogis").debug("2GIS retry-with-latlon attempt=%s params=%s", attempt, {k: v for k, v in params_alt.items() if k.lower() != "key"})
+                        res = await client.get(url, params=params_alt)
+                        logging.getLogger("twogis").debug("2GIS retry-with-latlon result %s -> %s", res.status_code, (res.text or "")[:1000])
+                        last_res = res
+                        if res.status_code == 200:
+                            break
+                    except Exception:
+                        pass
+
+                # Third fallback: try minimal params (remove fields, search_nearby)
+                minimal_params = {
+                    key: value
+                    for key, value in params.items()
+                    if key not in {"fields", "search_nearby"}
+                }
+                logging.getLogger("twogis").debug("2GIS retry-with-minimal attempt=%s params=%s", attempt, {k: v for k, v in minimal_params.items() if k.lower() != "key"})
+                res = await client.get(url, params=minimal_params)
+                logging.getLogger("twogis").debug("2GIS retry-with-minimal result %s -> %s", res.status_code, (res.text or "")[:1000])
+                last_res = res
+                if res.status_code == 200:
+                    break
+
+                # If still 400, do not retry endlessly
+                break
+
+            # Successful or other non-retriable status
+            break
+
+    if last_res is None:
+        raise TwoGisError("2GIS no response")
+
+    res = last_res
     if res.status_code != 200:
         logging.getLogger("twogis").warning(
-            "2GIS non-200 response %s %s", res.status_code, res.text[:1000]
+            "2GIS non-200 response %s %s", res.status_code, (res.text or "")[:1000]
         )
         raise TwoGisError(f"2GIS HTTP error {res.status_code}: {res.text}")
+
     data = res.json()
     if isinstance(data, list):
         return data
@@ -454,10 +519,12 @@ async def places_search(
     page_size: int = 10,
     include_raw: bool = True,
 ) -> list[dict]:
+    # 2GIS API accepts page_size in range 1..10 — clamp to avoid 400 errors
+    safe_page_size = max(1, min(10, int(page_size or 10)))
     params: dict[str, Any] = {
         "q": query,
         "locale": locale,
-        "page_size": page_size,
+        "page_size": safe_page_size,
         "fields": TWOGIS_SEARCH_FIELDS,
     }
     if lat is not None and lng is not None:
