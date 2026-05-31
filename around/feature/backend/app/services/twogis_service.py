@@ -49,7 +49,7 @@ async def _get_json(url: str, params: dict[str, Any]) -> Any:
     logging.getLogger("twogis").debug("2GIS GET %s params=%s", url, params_for_log)
     async with httpx.AsyncClient(timeout=20.0, headers=headers) as client:
         res = await client.get(url, params=params)
-    logging.getLogger("twogis").debug("2GIS response %s -> %s", res.status_code, res.text[:1000])
+        logging.getLogger("twogis").debug("2GIS response %s -> %s", res.status_code, res.text[:1000])
         if res.status_code == 400 and "fields" in params:
             safe_params = {
                 **params,
