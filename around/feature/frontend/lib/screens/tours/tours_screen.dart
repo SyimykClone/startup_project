@@ -11,6 +11,91 @@ import '../../services/tour_service.dart';
 import '../../state/auth_state.dart';
 import '../../utils/app_error_text.dart';
 
+const Map<int, String> _demoTourTitleEnById = {
+  -901: 'Son-Kol',
+  -902: 'Kel-Suu',
+  -903: 'Ala-Kol',
+};
+
+const Map<int, String> _demoTourDescriptionEnById = {
+  -901:
+      'Son-Kol Lake, Kalmak-Ashuu pass, horse riding, lake swimming, yurt stay and starry sky at around 3000 m.',
+  -902:
+      'High-mountain Kel-Suu Lake, Kok-Kiya valley, Kok-Kiya river canyon, and two nights in yurts.',
+  -903:
+      'Route through Altyn-Arashan gorge, hot springs, climb to Ala-Kol lake, and the northern shore of Issyk-Kul.',
+};
+
+const Map<String, String> _ruToEnMonth = {
+  'Январь': 'January',
+  'Февраль': 'February',
+  'Март': 'March',
+  'Апрель': 'April',
+  'Май': 'May',
+  'Июнь': 'June',
+  'Июль': 'July',
+  'Август': 'August',
+  'Сентябрь': 'September',
+  'Октябрь': 'October',
+  'Ноябрь': 'November',
+  'Декабрь': 'December',
+};
+
+const Map<String, String> _demoRuToEn = {
+  'трансфер': 'transfer',
+  'питание: ужин, завтрак, обед': 'meals: dinner, breakfast, lunch',
+  'питание: 2 ужина, 2 завтрака, 1 ланч-бокс':
+      'meals: 2 dinners, 2 breakfasts, 1 lunch box',
+  'питание: 2 ужина, 2 завтрака, 1 обед':
+      'meals: 2 dinners, 2 breakfasts, 1 lunch',
+  'проживание в юрте: 1 ночь': 'accommodation in yurt: 1 night',
+  'проживание в юртах: 2 ночи': 'accommodation in yurts: 2 nights',
+  'услуги гида': 'guide services',
+  'подъем на лошади до озера': 'horse ascent to the lake',
+  'услуги конюха': 'horse guide services',
+  'входные билеты': 'entry tickets',
+  'перевал Калмак-Ашуу': 'Kalmak-Ashuu pass',
+  'озеро Сон-Көл': 'Son-Kol lake',
+  'катание на лошадях': 'horse riding',
+  'купание в озере': 'lake swimming',
+  'ночь в юрте': 'overnight in yurt',
+  'звездное небо на высоте 3000 м': 'starry sky at 3000 m altitude',
+  'две ночи в юртах': 'two nights in yurts',
+  'долина Кок-Кыя': 'Kok-Kiya valley',
+  'озеро Кел-Суу': 'Kel-Suu lake',
+  'каньон реки Кок-Кыя': 'Kok-Kiya river canyon',
+  'ущелье Алтын-Арашан': 'Altyn-Arashan gorge',
+  'горячие источники Арашана': 'Arashan hot springs',
+  'конные прогулки': 'horseback rides',
+  'Safari Tour на КАМАЗ': 'Safari Tour by KAMAZ',
+  'северный берег Иссык-Куля': 'northern shore of Issyk-Kul',
+  'купание на пляже': 'beach swimming',
+  'рассрочка 0% на 3 и 6 месяцев': '0% installment for 3 and 6 months',
+};
+
+String _tourTitleText(Tour tour, bool isRu) {
+  if (isRu) return tour.title;
+  return _demoTourTitleEnById[tour.id] ?? tour.title;
+}
+
+String _tourDescriptionText(Tour tour, bool isRu) {
+  if (isRu) return tour.description;
+  return _demoTourDescriptionEnById[tour.id] ?? tour.description;
+}
+
+String _translateDemoText(String text, bool isRu) {
+  if (isRu) return text;
+  return _demoRuToEn[text] ?? text;
+}
+
+Map<String, List<int>> _localizedDates(Map<String, List<int>> dates, bool isRu) {
+  if (isRu) return dates;
+  return {
+    for (final entry in dates.entries)
+      (_ruToEnMonth[entry.key] ?? entry.key): entry.value,
+  };
+}
+
 class ToursScreen extends StatefulWidget {
   const ToursScreen({super.key, required this.refreshTick});
 
@@ -63,11 +148,7 @@ class _ToursScreenState extends State<ToursScreen> {
       case 'distance':
         filtered.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
       default:
-        filtered.sort((a, b) {
-          final aScore = a.stopsCount * 2 + a.durationDays;
-          final bScore = b.stopsCount * 2 + b.durationDays;
-          return bScore.compareTo(aScore);
-        });
+        filtered.sort((a, b) => a.durationDays.compareTo(b.durationDays));
     }
 
     return filtered;
@@ -124,7 +205,7 @@ class _ToursScreenState extends State<ToursScreen> {
           durationDays: result.durationDays,
           price: result.price,
           distanceKm: result.distanceKm,
-          stopsCount: result.stopsCount,
+          stopsCount: 0,
           difficulty: result.difficulty,
           isPublished: result.isPublished,
         );
@@ -136,7 +217,7 @@ class _ToursScreenState extends State<ToursScreen> {
           durationDays: result.durationDays,
           price: result.price,
           distanceKm: result.distanceKm,
-          stopsCount: result.stopsCount,
+          stopsCount: 0,
           difficulty: result.difficulty,
           isPublished: result.isPublished,
         );
@@ -189,6 +270,8 @@ class _ToursScreenState extends State<ToursScreen> {
 
   void _openTourDetails(Tour tour, bool isBusiness) {
     final demoDetails = demoDetailsForTour(tour);
+    final titleText = _tourTitleText(tour, _isRu);
+    final descriptionText = _tourDescriptionText(tour, _isRu);
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -196,6 +279,8 @@ class _ToursScreenState extends State<ToursScreen> {
       showDragHandle: true,
       builder: (_) => _TourDetailsSheet(
         tour: tour,
+        titleText: titleText,
+        descriptionText: descriptionText,
         isBusiness: isBusiness,
         priceLabel: _priceLabel(tour),
         difficultyLabel: _difficultyLabel(tour.difficulty),
@@ -218,6 +303,7 @@ class _ToursScreenState extends State<ToursScreen> {
 
   void _openBookingSheet(Tour tour) {
     final demoDetails = demoDetailsForTour(tour);
+    final titleText = _tourTitleText(tour, _isRu);
     Navigator.pop(context);
     showModalBottomSheet<void>(
       context: context,
@@ -226,6 +312,7 @@ class _ToursScreenState extends State<ToursScreen> {
       showDragHandle: true,
       builder: (_) => _BookingSheet(
         tour: tour,
+        titleText: titleText,
         priceLabel: _priceLabel(tour),
         demoDetails: demoDetails,
         onConfirmed: (request) {
@@ -322,8 +409,8 @@ class _ToursScreenState extends State<ToursScreen> {
                 title: l10n.noToursYet,
                 text: isBusiness
                     ? (_isRu
-                        ? 'Создайте первый тур: программа, цена в сомах, остановки и публикация.'
-                        : 'Create your first tour with itinerary, price in som, stops and publishing.')
+                    ? 'Создайте первый тур: программа, цена в сомах и публикация.'
+                    : 'Create your first tour with itinerary, price in som and publishing.')
                     : (_isRu
                         ? 'Опубликованные туры появятся здесь после добавления бизнес-пользователями.'
                         : 'Published tours will appear here after business users add them.'),
@@ -351,6 +438,8 @@ class _ToursScreenState extends State<ToursScreen> {
                   padding: const EdgeInsets.only(bottom: 12),
                   child: _TourCard(
                     tour: tour,
+                    titleText: _tourTitleText(tour, _isRu),
+                    descriptionText: _tourDescriptionText(tour, _isRu),
                     isBusiness: isBusiness,
                     priceLabel: _priceLabel(tour),
                     difficultyLabel: _difficultyLabel(tour.difficulty),
@@ -594,6 +683,8 @@ class _BusinessTourPanel extends StatelessWidget {
 class _TourCard extends StatelessWidget {
   const _TourCard({
     required this.tour,
+    required this.titleText,
+    required this.descriptionText,
     required this.isBusiness,
     required this.priceLabel,
     required this.difficultyLabel,
@@ -604,6 +695,8 @@ class _TourCard extends StatelessWidget {
   });
 
   final Tour tour;
+  final String titleText;
+  final String descriptionText;
   final bool isBusiness;
   final String priceLabel;
   final String difficultyLabel;
@@ -658,7 +751,7 @@ class _TourCard extends StatelessWidget {
                           children: [
                             Expanded(
                               child: Text(
-                                tour.title,
+                                titleText,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -705,7 +798,7 @@ class _TourCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    tour.description,
+                    descriptionText,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -725,10 +818,6 @@ class _TourCard extends StatelessWidget {
                       _InfoChip(
                         icon: Icons.route_outlined,
                         text: '${tour.distanceKm.toStringAsFixed(1)} ${l10n.kmUnit}',
-                      ),
-                      _InfoChip(
-                        icon: Icons.place_outlined,
-                        text: '${tour.stopsCount} ${l10n.stopsUnit}',
                       ),
                       _InfoChip(icon: Icons.speed_outlined, text: difficultyLabel),
                     ],
@@ -781,6 +870,8 @@ class _TourCard extends StatelessWidget {
 class _TourDetailsSheet extends StatelessWidget {
   const _TourDetailsSheet({
     required this.tour,
+    required this.titleText,
+    required this.descriptionText,
     required this.isBusiness,
     required this.priceLabel,
     required this.difficultyLabel,
@@ -790,6 +881,8 @@ class _TourDetailsSheet extends StatelessWidget {
   });
 
   final Tour tour;
+  final String titleText;
+  final String descriptionText;
   final bool isBusiness;
   final String priceLabel;
   final String difficultyLabel;
@@ -812,7 +905,7 @@ class _TourDetailsSheet extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    tour.title,
+                    titleText,
                     style: const TextStyle(
                       color: ToursScreen.base,
                       fontSize: 24,
@@ -829,7 +922,7 @@ class _TourDetailsSheet extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              tour.description,
+              descriptionText,
               style: TextStyle(
                 color: ToursScreen.base.withOpacity(0.76),
                 height: 1.35,
@@ -844,7 +937,9 @@ class _TourDetailsSheet extends StatelessWidget {
                 if (demoDetails != null)
                   _InfoChip(
                     icon: Icons.local_offer_outlined,
-                    text: 'вместо ${demoDetails!.oldPrice.toStringAsFixed(0)} сом',
+                    text: isRu
+                        ? 'вместо ${demoDetails!.oldPrice.toStringAsFixed(0)} сом'
+                        : 'was ${demoDetails!.oldPrice.toStringAsFixed(0)} som',
                   ),
                 _InfoChip(
                   icon: Icons.schedule_outlined,
@@ -853,10 +948,6 @@ class _TourDetailsSheet extends StatelessWidget {
                 _InfoChip(
                   icon: Icons.route_outlined,
                   text: '${tour.distanceKm.toStringAsFixed(1)} ${l10n.kmUnit}',
-                ),
-                _InfoChip(
-                  icon: Icons.place_outlined,
-                  text: '${tour.stopsCount} ${l10n.stopsUnit}',
                 ),
                 _InfoChip(icon: Icons.speed_outlined, text: difficultyLabel),
               ],
@@ -871,30 +962,26 @@ class _TourDetailsSheet extends StatelessWidget {
             ..._buildItinerary(context, tour),
             if (demoDetails != null) ...[
               const SizedBox(height: 16),
-              _SheetTitle(isRu ? 'Реальный маршрут' : 'Real route'),
-              const SizedBox(height: 10),
-              ...demoDetails!.stops.asMap().entries.map(
-                    (entry) => _TimelineItem(
-                      number: entry.key + 1,
-                      title: entry.value.name,
-                      text: entry.value.description,
-                    ),
-                  ),
-              const SizedBox(height: 16),
               _SheetTitle(isRu ? 'Даты' : 'Dates'),
               const SizedBox(height: 8),
-              _TourDatesWrap(dates: demoDetails!.dates),
+              _TourDatesWrap(dates: _localizedDates(demoDetails!.dates, isRu)),
               const SizedBox(height: 12),
               _SheetTitle(isRu ? 'Включено' : 'Included'),
               const SizedBox(height: 8),
-              ...demoDetails!.included.map((text) => _BenefitRow(text: text)),
+              ...demoDetails!.included
+                  .map((text) => _BenefitRow(text: _translateDemoText(text, isRu))),
               const SizedBox(height: 12),
               _SheetTitle(isRu ? 'Вас ожидает' : 'Highlights'),
               const SizedBox(height: 8),
-              ...demoDetails!.expectations.map((text) => _BenefitRow(text: text)),
+              ...demoDetails!.expectations
+                  .map((text) => _BenefitRow(text: _translateDemoText(text, isRu))),
               const SizedBox(height: 8),
-              _BenefitRow(text: demoDetails!.installment),
-              _BenefitRow(text: 'Бронь: ${demoDetails!.contactPhone}'),
+              _BenefitRow(
+                text: _translateDemoText(demoDetails!.installment, isRu),
+              ),
+              _BenefitRow(
+                text: '${isRu ? 'Бронь' : 'Booking'}: ${demoDetails!.contactPhone}',
+              ),
             ],
             const SizedBox(height: 16),
             _SheetTitle(isRu ? 'Условия' : 'Terms'),
@@ -932,15 +1019,15 @@ class _TourDetailsSheet extends StatelessWidget {
 
   List<Widget> _buildItinerary(BuildContext context, Tour tour) {
     final isRu = Localizations.localeOf(context).languageCode == 'ru';
-    final count = tour.stopsCount <= 0 ? 1 : tour.stopsCount;
+    final count = tour.durationDays <= 0 ? 1 : tour.durationDays;
     return List.generate(count, (index) {
       final isFirst = index == 0;
       final isLast = index == count - 1;
       final title = isFirst
-          ? (isRu ? 'Старт и встреча' : 'Start and meeting')
+        ? (isRu ? 'День 1: старт и встреча' : 'Day 1: start and meeting')
           : isLast
-              ? (isRu ? 'Финальная остановка' : 'Final stop')
-              : (isRu ? 'Остановка ${index + 1}' : 'Stop ${index + 1}');
+          ? (isRu ? 'Финальный день' : 'Final day')
+          : (isRu ? 'День ${index + 1}' : 'Day ${index + 1}');
       final text = isFirst
           ? (isRu
               ? 'Сбор группы, знакомство с маршрутом и правилами тура.'
@@ -952,7 +1039,12 @@ class _TourDetailsSheet extends StatelessWidget {
               : (isRu
                   ? 'Осмотр точки, краткая справка и время для фото.'
                   : 'Point visit, short story and photo time.');
-      return _TimelineItem(number: index + 1, title: title, text: text);
+      return _TimelineItem(
+        number: index + 1,
+        title: title,
+        text: text,
+        isLast: isLast,
+      );
     });
   }
 }
@@ -989,7 +1081,9 @@ class _DemoTourPromo extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isRu ? 'Спец. акция ${details.promoUntil}' : 'Special offer',
+                  isRu
+                      ? 'Спец. акция ${details.promoUntil}'
+                      : 'Special offer until June 5',
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
@@ -1050,12 +1144,14 @@ class _TourDatesWrap extends StatelessWidget {
 class _BookingSheet extends StatefulWidget {
   const _BookingSheet({
     required this.tour,
+    required this.titleText,
     required this.priceLabel,
     required this.demoDetails,
     required this.onConfirmed,
   });
 
   final Tour tour;
+  final String titleText;
   final String priceLabel;
   final TourDemoDetails? demoDetails;
   final ValueChanged<_TourBookingRequest> onConfirmed;
@@ -1081,7 +1177,9 @@ class _BookingSheetState extends State<_BookingSheet> {
   List<String> get _dateOptions {
     final details = widget.demoDetails;
     if (details == null) return const [];
-    return details.dates.entries
+    final isRu = Localizations.localeOf(context).languageCode == 'ru';
+    final localizedDates = _localizedDates(details.dates, isRu);
+    return localizedDates.entries
         .expand((entry) => entry.value.map((day) => '${entry.key}, $day'))
         .toList(growable: false);
   }
@@ -1108,7 +1206,7 @@ class _BookingSheetState extends State<_BookingSheet> {
           ),
           const SizedBox(height: 8),
           Text(
-            '${widget.tour.title} • ${widget.priceLabel}',
+            '${widget.titleText} • ${widget.priceLabel}',
             style: TextStyle(
               color: ToursScreen.base.withOpacity(0.72),
               fontWeight: FontWeight.w700,
@@ -1137,7 +1235,7 @@ class _BookingSheetState extends State<_BookingSheet> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${widget.demoDetails!.installment}\n${isRu ? 'Для брони' : 'Booking'}: ${widget.demoDetails!.contactPhone}',
+                    '${_translateDemoText(widget.demoDetails!.installment, isRu)}\n${isRu ? 'Для брони' : 'Booking'}: ${widget.demoDetails!.contactPhone}',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.72),
                       height: 1.25,
@@ -1259,7 +1357,6 @@ class _TourEditorSheetState extends State<_TourEditorSheet> {
   late final TextEditingController _duration;
   late final TextEditingController _price;
   late final TextEditingController _distance;
-  late final TextEditingController _stops;
   late String _difficulty;
   late bool _published;
 
@@ -1274,7 +1371,6 @@ class _TourEditorSheetState extends State<_TourEditorSheet> {
     _duration = TextEditingController(text: tour?.durationDays.toString() ?? '');
     _price = TextEditingController(text: tour?.price.toStringAsFixed(0) ?? '');
     _distance = TextEditingController(text: tour?.distanceKm.toStringAsFixed(1) ?? '');
-    _stops = TextEditingController(text: tour?.stopsCount.toString() ?? '');
     _difficulty = tour?.difficulty ?? 'easy';
     _published = tour?.isPublished ?? false;
   }
@@ -1286,7 +1382,6 @@ class _TourEditorSheetState extends State<_TourEditorSheet> {
     _duration.dispose();
     _price.dispose();
     _distance.dispose();
-    _stops.dispose();
     super.dispose();
   }
 
@@ -1301,7 +1396,6 @@ class _TourEditorSheetState extends State<_TourEditorSheet> {
         durationDays: int.parse(_duration.text.trim()),
         price: double.parse(_price.text.trim().replaceAll(',', '.')),
         distanceKm: double.parse(_distance.text.trim().replaceAll(',', '.')),
-        stopsCount: int.parse(_stops.text.trim()),
         difficulty: _difficulty,
         isPublished: _published,
       ),
@@ -1477,15 +1571,6 @@ class _TourEditorSheetState extends State<_TourEditorSheet> {
                               suffix: l10n.kmUnit,
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: _NumberField(
-                              controller: _stops,
-                              label: _isRu ? 'Остановки' : 'Stops',
-                              icon: Icons.place_outlined,
-                              integerOnly: true,
-                            ),
-                          ),
                         ],
                       ),
                       const SizedBox(height: 14),
@@ -1501,7 +1586,6 @@ class _TourEditorSheetState extends State<_TourEditorSheet> {
                     title: _title,
                     price: _price,
                     duration: _duration,
-                    stops: _stops,
                     difficulty: _difficulty,
                   ),
                   const SizedBox(height: 12),
@@ -1747,21 +1831,19 @@ class _TourDraftPreview extends StatelessWidget {
     required this.title,
     required this.price,
     required this.duration,
-    required this.stops,
     required this.difficulty,
   });
 
   final TextEditingController title;
   final TextEditingController price;
   final TextEditingController duration;
-  final TextEditingController stops;
   final String difficulty;
 
   @override
   Widget build(BuildContext context) {
     final isRu = Localizations.localeOf(context).languageCode == 'ru';
     return AnimatedBuilder(
-      animation: Listenable.merge([title, price, duration, stops]),
+      animation: Listenable.merge([title, price, duration]),
       builder: (context, _) {
         final titleText = title.text.trim().isEmpty
             ? (isRu ? 'Название тура' : 'Tour title')
@@ -1772,9 +1854,6 @@ class _TourDraftPreview extends StatelessWidget {
         final durationText = duration.text.trim().isEmpty
             ? (isRu ? 'Дни' : 'Days')
             : '${duration.text.trim()} ${context.l10n.daysUnit}';
-        final stopsText = stops.text.trim().isEmpty
-            ? (isRu ? 'Остановки' : 'Stops')
-            : '${stops.text.trim()} ${context.l10n.stopsUnit}';
 
         return Container(
           width: double.infinity,
@@ -1839,7 +1918,6 @@ class _TourDraftPreview extends StatelessWidget {
                     icon: Icons.calendar_today_outlined,
                     text: durationText,
                   ),
-                  _PreviewChip(icon: Icons.place_outlined, text: stopsText),
                   _PreviewChip(
                     icon: Icons.speed_outlined,
                     text: _difficultyText(context, difficulty),
@@ -1905,47 +1983,63 @@ class _TimelineItem extends StatelessWidget {
     required this.number,
     required this.title,
     required this.text,
+    required this.isLast,
   });
 
   final int number;
   final String title;
   final String text;
+  final bool isLast;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          CircleAvatar(
-            radius: 15,
-            backgroundColor: ToursScreen.accent,
-            foregroundColor: ToursScreen.base,
-            child: Text(
-              '$number',
-              style: const TextStyle(fontWeight: FontWeight.w900),
+          if (!isLast)
+            Positioned(
+              left: 14,
+              top: 30,
+              bottom: 0,
+              child: Container(
+                width: 2,
+                color: ToursScreen.base.withOpacity(0.12),
+              ),
             ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: ToursScreen.base,
-                    fontWeight: FontWeight.w900,
-                  ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 15,
+                backgroundColor: ToursScreen.accent,
+                foregroundColor: ToursScreen.base,
+                child: Text(
+                  '$number',
+                  style: const TextStyle(fontWeight: FontWeight.w900),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  text,
-                  style: TextStyle(color: ToursScreen.base.withOpacity(0.68)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: ToursScreen.base,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      text,
+                      style: TextStyle(color: ToursScreen.base.withOpacity(0.68)),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -2056,7 +2150,6 @@ class _TourFormResult {
     required this.durationDays,
     required this.price,
     required this.distanceKm,
-    required this.stopsCount,
     required this.difficulty,
     required this.isPublished,
   });
@@ -2066,7 +2159,6 @@ class _TourFormResult {
   final int durationDays;
   final double price;
   final double distanceKm;
-  final int stopsCount;
   final String difficulty;
   final bool isPublished;
 }

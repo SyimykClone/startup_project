@@ -208,7 +208,7 @@ class PoiService {
         if (lng != null) 'lng': lng,
         'radius_m': radiusM,
         'locale': locale,
-        'page_size': 20,
+        'page_size': 10,
       },
     );
     final data = res.data as List;

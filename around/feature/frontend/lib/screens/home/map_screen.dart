@@ -1434,18 +1434,225 @@ class _MapScreenState extends State<MapScreen> {
     await _drawInitialTourRoute(stops);
   }
 
+  List<LatLng> _routePointsFromGeometry(Map<String, dynamic> geometry) {
+    final rawCoordinates = geometry['coordinates'];
+    if (rawCoordinates is! List) return const [];
+    return rawCoordinates
+        .whereType<List>()
+        .where((c) => c.length >= 2 && c[0] is num && c[1] is num)
+        .map((c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()))
+        .toList(growable: false);
+  }
+
+  double _segmentEndpointError(
+    List<LatLng> points,
+    Poi start,
+    Poi finish,
+  ) {
+    if (points.length < 2) return double.infinity;
+    final first = points.first;
+    final last = points.last;
+    final startError = Geolocator.distanceBetween(
+      start.latitude,
+      start.longitude,
+      first.latitude,
+      first.longitude,
+    );
+    final finishError = Geolocator.distanceBetween(
+      finish.latitude,
+      finish.longitude,
+      last.latitude,
+      last.longitude,
+    );
+    return startError + finishError;
+  }
+
+  List<LatLng> _normalizeSegmentPoints(
+    List<LatLng> points,
+    Poi start,
+    Poi finish,
+  ) {
+    if (points.length < 2) return const [];
+    final reversed = points.reversed.toList(growable: false);
+    final directError = _segmentEndpointError(points, start, finish);
+    final reversedError = _segmentEndpointError(reversed, start, finish);
+
+    final bestPoints = directError <= reversedError ? points : reversed;
+    final bestError = directError <= reversedError ? directError : reversedError;
+
+    final straightDistance = Geolocator.distanceBetween(
+      start.latitude,
+      start.longitude,
+      finish.latitude,
+      finish.longitude,
+    );
+    final maxAllowedError = straightDistance * 0.8 > 5000
+        ? straightDistance * 0.8
+        : 5000.0;
+
+    if (bestError > maxAllowedError) return const [];
+    return bestPoints;
+  }
+
+  bool _samePoint(LatLng a, LatLng b) {
+    final distance = Geolocator.distanceBetween(
+      a.latitude,
+      a.longitude,
+      b.latitude,
+      b.longitude,
+    );
+    return distance <= 10;
+  }
+
+  void _appendSegment(List<LatLng> target, List<LatLng> segment) {
+    if (segment.length < 2) return;
+    if (target.isEmpty) {
+      target.addAll(segment);
+      return;
+    }
+    if (_samePoint(target.last, segment.first)) {
+      target.addAll(segment.skip(1));
+    } else {
+      target.addAll(segment);
+    }
+  }
+
+  List<LatLng> _normalizeTourPoints(
+    List<LatLng> points,
+    LatLng start,
+    LatLng finish,
+  ) {
+    if (points.length < 2) return const [];
+
+    final reversed = points.reversed.toList(growable: false);
+    final directError = Geolocator.distanceBetween(
+          start.latitude,
+          start.longitude,
+          points.first.latitude,
+          points.first.longitude,
+        ) +
+        Geolocator.distanceBetween(
+          finish.latitude,
+          finish.longitude,
+          points.last.latitude,
+          points.last.longitude,
+        );
+    final reversedError = Geolocator.distanceBetween(
+          start.latitude,
+          start.longitude,
+          reversed.first.latitude,
+          reversed.first.longitude,
+        ) +
+        Geolocator.distanceBetween(
+          finish.latitude,
+          finish.longitude,
+          reversed.last.latitude,
+          reversed.last.longitude,
+        );
+
+    return directError <= reversedError ? points : reversed;
+  }
+
   Future<void> _drawInitialTourRoute(List<Poi> stops) async {
-    if (stops.length < 2) return;
+    if (stops.length < 2 || !mounted) return;
+
+    final tourStart = LatLng(stops.first.latitude, stops.first.longitude);
+    final tourFinish = LatLng(stops.last.latitude, stops.last.longitude);
+
+    // Prefer backend stitched route first.
     try {
-      final route = await _routeService.buildTourRoute(stops);
-      final rawCoordinates = route.geometry['coordinates'];
-      if (rawCoordinates is! List) return;
-      final routePoints = rawCoordinates
-          .whereType<List>()
-          .where((c) => c.length >= 2 && c[0] is num && c[1] is num)
-          .map((c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()))
-          .toList(growable: false);
-      if (routePoints.length < 2 || !mounted) return;
+      final resp = await _routeService.buildTourRoute(stops);
+      final parsed = _routePointsFromGeometry(resp.geometry);
+      final normalized = _normalizeTourPoints(parsed, tourStart, tourFinish);
+      if (normalized.length >= 2) {
+        setState(() {
+          _polylines = {
+            Polyline(
+              polylineId: const PolylineId('tour_route'),
+              points: normalized,
+              color: _accent,
+              width: 5,
+            ),
+          };
+        });
+        return;
+      }
+    } catch (_) {}
+
+    final routePoints = <LatLng>[];
+    var missedSegments = 0;
+
+    for (var index = 0; index < stops.length - 1; index++) {
+      final startPoi = stops[index];
+      final finishPoi = stops[index + 1];
+
+      Future<List<LatLng>> _buildSegment(RouteResponse response) async {
+        final segmentParsed = _routePointsFromGeometry(response.geometry);
+        return _normalizeSegmentPoints(segmentParsed, startPoi, finishPoi);
+      }
+
+      try {
+        final segmentResp = await _routeService.buildRoute(
+          RouteRequest(
+            fromLat: startPoi.latitude,
+            fromLng: startPoi.longitude,
+            toLat: finishPoi.latitude,
+            toLng: finishPoi.longitude,
+            profile: 'driving',
+            destinationName: finishPoi.name,
+          ),
+        );
+
+        var segmentPoints = await _buildSegment(segmentResp);
+        if (segmentPoints.length < 2) {
+          final publicResp = await _routeService.buildRoutePublic(
+            RouteRequest(
+              fromLat: startPoi.latitude,
+              fromLng: startPoi.longitude,
+              toLat: finishPoi.latitude,
+              toLng: finishPoi.longitude,
+              profile: 'driving',
+              destinationName: finishPoi.name,
+            ),
+          );
+          segmentPoints = await _buildSegment(publicResp);
+        }
+
+        if (segmentPoints.length >= 2) {
+          _appendSegment(routePoints, segmentPoints);
+        } else {
+          missedSegments += 1;
+        }
+      } catch (_) {
+        try {
+          final publicResp = await _routeService.buildRoutePublic(
+            RouteRequest(
+              fromLat: startPoi.latitude,
+              fromLng: startPoi.longitude,
+              toLat: finishPoi.latitude,
+              toLng: finishPoi.longitude,
+              profile: 'driving',
+              destinationName: finishPoi.name,
+            ),
+          );
+          final publicParsed = _routePointsFromGeometry(publicResp.geometry);
+          final publicPoints = _normalizeSegmentPoints(
+            publicParsed,
+            startPoi,
+            finishPoi,
+          );
+          if (publicPoints.length >= 2) {
+            _appendSegment(routePoints, publicPoints);
+          } else {
+            missedSegments += 1;
+          }
+        } catch (_) {
+          missedSegments += 1;
+        }
+      }
+    }
+
+    if (routePoints.length >= 2 && mounted) {
       setState(() {
         _polylines = {
           Polyline(
@@ -1456,18 +1663,30 @@ class _MapScreenState extends State<MapScreen> {
           ),
         };
       });
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _isRu
-                ? 'Не удалось построить линию тура через 2GIS. Остановки показаны на карте.'
-                : 'Could not build the tour route with 2GIS. Stops are shown on the map.',
+
+      if (missedSegments > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _isRu
+                  ? 'Часть сегментов тура не построилась по дорогам ($missedSegments).'
+                  : 'Some tour segments could not be built on roads ($missedSegments).',
+            ),
           ),
-        ),
-      );
+        );
+      }
+      return;
     }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _isRu
+              ? 'Не удалось построить тур-маршрут по дорогам. Проверьте backend /api/2gis.'
+              : 'Could not build a road tour route. Check backend /api/2gis.',
+        ),
+      ),
+    );
   }
 
   Future<void> _toggleFavorite() async {
