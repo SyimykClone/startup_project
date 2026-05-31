@@ -2,6 +2,7 @@ import math
 from typing import Any
 
 import httpx
+import logging
 
 from app.core.config import settings
 
@@ -43,14 +44,19 @@ def _normalize_params(params: dict[str, Any]) -> dict[str, Any]:
 async def _get_json(url: str, params: dict[str, Any]) -> Any:
     params = {"key": _require_api_key(), **_normalize_params(params)}
     headers = {"User-Agent": "around-backend/1.0"}
+    # Do not log the API key
+    params_for_log = {k: v for k, v in params.items() if k.lower() != "key"}
+    logging.getLogger("twogis").debug("2GIS GET %s params=%s", url, params_for_log)
     async with httpx.AsyncClient(timeout=20.0, headers=headers) as client:
         res = await client.get(url, params=params)
+        logging.getLogger("twogis").debug("2GIS response %s -> %s", res.status_code, res.text[:1000])
         if res.status_code == 400 and "fields" in params:
             safe_params = {
                 **params,
                 "fields": TWOGIS_SEARCH_FIELDS,
             }
             res = await client.get(url, params=safe_params)
+            logging.getLogger("twogis").debug("2GIS retry-with-safe-fields %s -> %s", res.status_code, res.text[:1000])
         if res.status_code == 400:
             minimal_params = {
                 key: value
@@ -58,7 +64,11 @@ async def _get_json(url: str, params: dict[str, Any]) -> Any:
                 if key not in {"fields", "search_nearby"}
             }
             res = await client.get(url, params=minimal_params)
+            logging.getLogger("twogis").debug("2GIS retry-with-minimal %s -> %s", res.status_code, res.text[:1000])
     if res.status_code != 200:
+        logging.getLogger("twogis").warning(
+            "2GIS non-200 response %s %s", res.status_code, res.text[:1000]
+        )
         raise TwoGisError(f"2GIS HTTP error {res.status_code}: {res.text}")
     data = res.json()
     if isinstance(data, list):
