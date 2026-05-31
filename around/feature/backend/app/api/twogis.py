@@ -607,24 +607,27 @@ async def twogis_tour_route(
                 profile=payload.profile,
                 destination_name=f"Tour stop {index + 2}",
             )
-            raw = await routing(
-                from_lat=req.from_lat,
-                from_lng=req.from_lng,
-                to_lat=req.to_lat,
-                to_lng=req.to_lng,
-                transport=_transport_for_profile(req.profile),
-                locale="ru",
-            )
-            segment = _route_response_from_2gis(raw, req)
-            coordinates = segment.geometry.get("coordinates")
-            if not isinstance(coordinates, list) or len(coordinates) < 2:
+            try:
+                raw = await routing(
+                    from_lat=req.from_lat,
+                    from_lng=req.from_lng,
+                    to_lat=req.to_lat,
+                    to_lng=req.to_lng,
+                    transport=_transport_for_profile(req.profile),
+                    locale="ru",
+                )
+                segment = _route_response_from_2gis(raw, req)
+                coordinates = segment.geometry.get("coordinates")
+                if not isinstance(coordinates, list) or len(coordinates) < 2:
+                    continue
+                total_distance += segment.distance_m
+                total_duration += segment.duration_s
+                if all_coordinates and all_coordinates[-1] == coordinates[0]:
+                    all_coordinates.extend(coordinates[1:])
+                else:
+                    all_coordinates.extend(coordinates)
+            except Exception:
                 continue
-            total_distance += segment.distance_m
-            total_duration += segment.duration_s
-            if all_coordinates and all_coordinates[-1] == coordinates[0]:
-                all_coordinates.extend(coordinates[1:])
-            else:
-                all_coordinates.extend(coordinates)
 
         if len(all_coordinates) < 2:
             raise TwoGisError("2GIS did not return tour route geometry")
@@ -641,8 +644,6 @@ async def twogis_tour_route(
             },
         )
     except Exception as e:
-        if isinstance(e, TwoGisError):
-            return []
         raise _handle_twogis_error(e)
 
 

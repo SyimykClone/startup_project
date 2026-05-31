@@ -13,6 +13,11 @@ class TwoGisError(Exception):
 CATALOG_BASE_URL = "https://catalog.api.2gis.com"
 ROUTING_BASE_URL = "https://routing.api.2gis.com"
 
+TWOGIS_SEARCH_FIELDS = (
+    "items.id,items.name,items.full_name,items.type,items.subtype,"
+    "items.point,items.address_name,items.full_address_name,items.rubrics"
+)
+
 
 def _require_api_key() -> str:
     key = settings.TWOGIS_API_KEY.strip()
@@ -42,7 +47,7 @@ async def _get_json(url: str, params: dict[str, Any]) -> Any:
         if res.status_code == 400 and "fields" in params:
             safe_params = {
                 **params,
-                "fields": "items.point,items.address_name,items.full_address_name,items.rubrics",
+                "fields": TWOGIS_SEARCH_FIELDS,
             }
             res = await client.get(url, params=safe_params)
         if res.status_code == 400:
@@ -441,7 +446,7 @@ async def places_search(
         "q": query,
         "locale": locale,
         "page_size": page_size,
-        "fields": "items.point,items.address_name,items.full_address_name,items.rubrics",
+        "fields": TWOGIS_SEARCH_FIELDS,
     }
     if lat is not None and lng is not None:
         params["location"] = f"{lng},{lat}"
@@ -497,7 +502,7 @@ async def objects_near_point(
             "lon": lng,
             "radius": radius_m,
             "locale": locale,
-            "fields": "items.point,items.address_name,items.full_address_name,items.rubrics",
+            "fields": TWOGIS_SEARCH_FIELDS,
         },
     )
     items = _items_from_response(data)
