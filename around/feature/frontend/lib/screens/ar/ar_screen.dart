@@ -1,0 +1,807 @@
+﻿import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:model_viewer_plus/model_viewer_plus.dart';
+import 'package:provider/provider.dart';
+
+import '../../core/config/app_config.dart';
+import '../../core/network/api_client.dart';
+import '../../models/poi.dart';
+import '../../services/location_service.dart';
+import '../../services/poi_service.dart';
+import '../../state/auth_state.dart';
+import '../../utils/app_error_text.dart';
+
+class ArScreen extends StatefulWidget {
+  const ArScreen({super.key});
+
+  @override
+  State<ArScreen> createState() => _ArScreenState();
+}
+
+class _ArScreenState extends State<ArScreen> {
+  static const _base = Color(0xFF151E3F);
+  static const _accent = Color(0xFFFAA916);
+
+  final _picker = ImagePicker();
+  final _location = LocationService();
+
+  XFile? _capturedImage;
+  Position? _position;
+  _ArScanTarget? _target;
+  bool _loading = false;
+  bool _modelAvailable = false;
+  bool _tooFar = false;
+
+  Future<void> _startArScan() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+
+    final isRu = _isRu;
+
+    try {
+      final pos = await _location.getCurrentPosition();
+      final target = await _findNearestArTarget(pos);
+      if (target == null) {
+        if (!mounted) return;
+        setState(() {
+          _capturedImage = null;
+          _position = pos;
+          _target = null;
+          _modelAvailable = false;
+          _tooFar = false;
+          _loading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isRu
+                  ? '\u0420\u044f\u0434\u043e\u043c \u043d\u0435\u0442 AR-\u043e\u0431\u044a\u0435\u043a\u0442\u0430. \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u043a\u043e\u043e\u0440\u0434\u0438\u043d\u0430\u0442\u044b \u043e\u0431\u044a\u0435\u043a\u0442\u0430 \u0432 \u0431\u0430\u0437\u0435.'
+                  : 'No AR object nearby. Check object coordinates in the database.',
+            ),
+          ),
+        );
+        return;
+      }
+
+      if (target.distanceM > target.radiusM) {
+        if (!mounted) return;
+        setState(() {
+          _capturedImage = null;
+          _position = pos;
+          _target = target;
+          _modelAvailable = false;
+          _tooFar = true;
+          _loading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(target.tooFarLabel(isRu))),
+        );
+        return;
+      }
+
+      final modelAvailable = await _hasModelAsset(target.modelAsset);
+
+      final shot = await _picker.pickImage(
+        source: ImageSource.camera,
+        preferredCameraDevice: CameraDevice.rear,
+        maxWidth: 1600,
+        imageQuality: 88,
+      );
+
+      if (!mounted) return;
+      if (shot == null) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isRu
+                  ? '\u0421\u043a\u0430\u043d\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435 \u043e\u0442\u043c\u0435\u043d\u0435\u043d\u043e.'
+                  : 'Scan canceled.',
+            ),
+          ),
+        );
+        return;
+      }
+
+      setState(() {
+        _capturedImage = shot;
+        _position = pos;
+        _target = target;
+        _modelAvailable = modelAvailable;
+        _tooFar = target.distanceM > target.radiusM;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      final message = isRu
+          ? '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u043f\u0443\u0441\u0442\u0438\u0442\u044c AR-\u0441\u043a\u0430\u043d\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435. \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u043a\u0430\u043c\u0435\u0440\u0443 \u0438 \u0433\u0435\u043e\u043b\u043e\u043a\u0430\u0446\u0438\u044e.'
+          : AppErrorText.fromObject(context, e);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  bool get _isRu => Localizations.localeOf(context).languageCode == 'ru';
+
+  Future<_ArScanTarget?> _findNearestArTarget(Position pos) async {
+    final cfg = context.read<AppConfig>();
+    final token = context.read<AuthState>().token;
+    final poiService = PoiService(
+      ApiClient(cfg.apiBaseUrl, token: token),
+      useMock: cfg.useMock,
+    );
+
+    final poi = await poiService.fetchNearbyArPoi(
+      lat: pos.latitude,
+      lng: pos.longitude,
+      maxDistanceM: 1000,
+    );
+    if (poi == null) return null;
+    return _ArScanTarget.fromPoi(
+      poi: poi,
+      distanceM: poi.arDistanceM ?? _distanceTo(pos, poi),
+    );
+  }
+
+  double _distanceTo(Position pos, Poi poi) {
+    return Geolocator.distanceBetween(
+      pos.latitude,
+      pos.longitude,
+      poi.latitude,
+      poi.longitude,
+    );
+  }
+
+  Future<bool> _hasModelAsset(String assetPath) async {
+    try {
+      await rootBundle.load(assetPath);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isRu = _isRu;
+    final title = isRu
+        ? 'AR-\u0441\u043a\u0430\u043d\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435'
+        : 'AR Scan';
+    final subtitle = isRu
+        ? '\u041f\u043e\u0434\u043e\u0439\u0434\u0438\u0442\u0435 \u043a \u0434\u043e\u0441\u0442\u043e\u043f\u0440\u0438\u043c\u0435\u0447\u0430\u0442\u0435\u043b\u044c\u043d\u043e\u0441\u0442\u0438, \u043d\u0430\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u0430\u043c\u0435\u0440\u0443 \u0438 \u043f\u043e\u043b\u0443\u0447\u0438\u0442\u0435 3D-\u043c\u043e\u0434\u0435\u043b\u044c \u0441 \u043e\u043f\u0438\u0441\u0430\u043d\u0438\u0435\u043c.'
+        : 'Approach a landmark, scan it with camera, and view a 3D model.';
+    final startLabel = _capturedImage == null
+        ? (isRu
+            ? '\u0421\u043a\u0430\u043d\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u043e\u0431\u044a\u0435\u043a\u0442'
+            : 'Scan object')
+        : (isRu
+            ? '\u0421\u043a\u0430\u043d\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0441\u043d\u043e\u0432\u0430'
+            : 'Scan again');
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          children: [
+            _IntroCard(
+              title: title,
+              subtitle: subtitle,
+              loading: _loading,
+              buttonLabel: startLabel,
+              onScan: _startArScan,
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: Container(
+                  width: double.infinity,
+                  color: const Color(0xFFF3F5FA),
+                  child: _capturedImage == null
+                      ? _EmptyScanState(isRu: isRu)
+                      : _ArScanResult(
+                          imagePath: _capturedImage!.path,
+                          target: _target,
+                          modelAvailable: _modelAvailable,
+                          tooFar: _tooFar,
+                          position: _position,
+                          isRu: isRu,
+                        ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _IntroCard extends StatelessWidget {
+  const _IntroCard({
+    required this.title,
+    required this.subtitle,
+    required this.loading,
+    required this.buttonLabel,
+    required this.onScan,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool loading;
+  final String buttonLabel;
+  final VoidCallback onScan;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _ArScreenState._base.withOpacity(0.14)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.view_in_ar, color: _ArScreenState._base),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: _ArScreenState._base,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: TextStyle(color: _ArScreenState._base.withOpacity(0.72)),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: loading ? null : onScan,
+              style: FilledButton.styleFrom(
+                backgroundColor: _ArScreenState._accent,
+                foregroundColor: _ArScreenState._base,
+              ),
+              icon: loading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.camera_alt_outlined),
+              label: Text(buttonLabel),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyScanState extends StatelessWidget {
+  const _EmptyScanState({required this.isRu});
+
+  final bool isRu;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const _ScannerPreviewFrame(),
+            const SizedBox(height: 18),
+            Text(
+              isRu
+                  ? '\u041d\u0430\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u0430\u043c\u0435\u0440\u0443 \u043d\u0430 \u043e\u0431\u044a\u0435\u043a\u0442'
+                  : 'Point camera at object',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: _ArScreenState._base,
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isRu
+                  ? '\u041d\u0430\u0436\u043c\u0438\u0442\u0435 \u043a\u043d\u043e\u043f\u043a\u0443 \u0432\u044b\u0448\u0435, \u0440\u0430\u0437\u0440\u0435\u0448\u0438\u0442\u0435 \u0434\u043e\u0441\u0442\u0443\u043f \u043a \u043a\u0430\u043c\u0435\u0440\u0435 \u0438 \u043d\u0430\u0447\u043d\u0438\u0442\u0435 \u0441\u043a\u0430\u043d\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435.'
+                  : 'Tap the button above to open camera and start scanning.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: _ArScreenState._base.withOpacity(0.7)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ScannerPreviewFrame extends StatelessWidget {
+  const _ScannerPreviewFrame();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 210,
+      height: 210,
+      decoration: BoxDecoration(
+        color: _ArScreenState._base,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: _ArScreenState._base.withOpacity(0.18),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned.fill(child: CustomPaint(painter: _ScanGridPainter())),
+          const Center(
+            child: Icon(
+              Icons.center_focus_strong_rounded,
+              color: _ArScreenState._accent,
+              size: 64,
+            ),
+          ),
+          const Positioned(left: 18, top: 18, child: _ScanCorner()),
+          const Positioned(
+            right: 18,
+            top: 18,
+            child: RotatedBox(quarterTurns: 1, child: _ScanCorner()),
+          ),
+          const Positioned(
+            right: 18,
+            bottom: 18,
+            child: RotatedBox(quarterTurns: 2, child: _ScanCorner()),
+          ),
+          const Positioned(
+            left: 18,
+            bottom: 18,
+            child: RotatedBox(quarterTurns: 3, child: _ScanCorner()),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScanCorner extends StatelessWidget {
+  const _ScanCorner();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      width: 34,
+      height: 34,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(color: _ArScreenState._accent, width: 4),
+            left: BorderSide(color: _ArScreenState._accent, width: 4),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ScanGridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withOpacity(0.08)
+      ..strokeWidth = 1;
+    for (var i = 1; i < 4; i++) {
+      final dx = size.width * i / 4;
+      final dy = size.height * i / 4;
+      canvas.drawLine(Offset(dx, 0), Offset(dx, size.height), paint);
+      canvas.drawLine(Offset(0, dy), Offset(size.width, dy), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _ArScanResult extends StatelessWidget {
+  const _ArScanResult({
+    required this.imagePath,
+    required this.target,
+    required this.modelAvailable,
+    required this.tooFar,
+    required this.position,
+    required this.isRu,
+  });
+
+  final String imagePath;
+  final _ArScanTarget? target;
+  final bool modelAvailable;
+  final bool tooFar;
+  final Position? position;
+  final bool isRu;
+
+  @override
+  Widget build(BuildContext context) {
+    final target = this.target;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.file(File(imagePath), fit: BoxFit.cover),
+        Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0x77000000), Color(0x11000000), Color(0x99000000)],
+            ),
+          ),
+        ),
+        Positioned(
+          top: 14,
+          left: 14,
+          right: 14,
+          child: _ScanStatusCard(target: target, tooFar: tooFar, isRu: isRu),
+        ),
+        Center(
+          child: Container(
+            width: 230,
+            height: 230,
+            decoration: BoxDecoration(
+              color: const Color(0xCCFFFFFF),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: _ArScreenState._accent, width: 1.4),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: target == null
+                ? _NoArObjectHint(isRu: isRu)
+                : tooFar
+                    ? _TooFarHint(target: target, isRu: isRu)
+                    : modelAvailable
+                        ? ModelViewer(
+                            src: target.modelAsset,
+                            alt: target.title,
+                            autoRotate: true,
+                            cameraControls: true,
+                            disableZoom: true,
+                            backgroundColor: Colors.transparent,
+                          )
+                        : _MissingModelHint(
+                            modelPath: target.modelAsset,
+                            isRu: isRu,
+                          ),
+          ),
+        ),
+        Positioned(
+          left: 14,
+          right: 14,
+          bottom: 14,
+          child: _BottomInfo(target: target, position: position, isRu: isRu),
+        ),
+      ],
+    );
+  }
+}
+
+class _ScanStatusCard extends StatelessWidget {
+  const _ScanStatusCard({
+    required this.target,
+    required this.tooFar,
+    required this.isRu,
+  });
+
+  final _ArScanTarget? target;
+  final bool tooFar;
+  final bool isRu;
+
+  @override
+  Widget build(BuildContext context) {
+    final scanTarget = target;
+    final title = scanTarget?.title ??
+        (isRu
+            ? 'AR-\u043e\u0431\u044a\u0435\u043a\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d'
+            : 'No AR object found');
+    final subtitle = scanTarget == null
+        ? (isRu
+            ? '\u0420\u044f\u0434\u043e\u043c \u043d\u0435\u0442 \u0434\u043e\u0441\u0442\u043e\u043f\u0440\u0438\u043c\u0435\u0447\u0430\u0442\u0435\u043b\u044c\u043d\u043e\u0441\u0442\u0438 \u0441 AR-\u043c\u043e\u0434\u0435\u043b\u044c\u044e.'
+            : 'There is no nearby landmark with an AR model.')
+        : tooFar
+            ? scanTarget.tooFarLabel(isRu)
+            : scanTarget.distanceLabel(isRu);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xEFFFFFFF),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF3D9),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              target == null ? Icons.search_off : Icons.place,
+              color: _ArScreenState._base,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _ArScreenState._base,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: _ArScreenState._base.withOpacity(0.68),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Chip(
+            backgroundColor: Color(0xFFFFF3D9),
+            side: BorderSide.none,
+            label: Text(
+              'AR',
+              style: TextStyle(
+                color: _ArScreenState._base,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BottomInfo extends StatelessWidget {
+  const _BottomInfo({
+    required this.target,
+    required this.position,
+    required this.isRu,
+  });
+
+  final _ArScanTarget? target;
+  final Position? position;
+  final bool isRu;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = isRu
+        ? '\u041a\u0440\u0430\u0442\u043a\u043e\u0435 \u043e\u043f\u0438\u0441\u0430\u043d\u0438\u0435'
+        : 'Short description';
+    final description = target?.description ??
+        (isRu
+            ? 'AR-\u0434\u0430\u043d\u043d\u044b\u0435 \u0434\u043b\u044f \u0431\u043b\u0438\u0436\u0430\u0439\u0448\u0435\u0433\u043e \u043e\u0431\u044a\u0435\u043a\u0442\u0430 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u044b.'
+            : 'AR data for the nearest object was not found.');
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xEFFFFFFF),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: _ArScreenState._base,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            description,
+            maxLines: 5,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: _ArScreenState._base.withOpacity(0.78)),
+          ),
+          if (position != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'GPS: ${position!.latitude.toStringAsFixed(5)}, '
+              '${position!.longitude.toStringAsFixed(5)}',
+              style: TextStyle(
+                color: _ArScreenState._base.withOpacity(0.58),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _NoArObjectHint extends StatelessWidget {
+  const _NoArObjectHint({required this.isRu});
+
+  final bool isRu;
+
+  @override
+  Widget build(BuildContext context) {
+    return _CenteredHint(
+      icon: Icons.search_off,
+      title: isRu
+          ? 'AR-\u043e\u0431\u044a\u0435\u043a\u0442 \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d'
+          : 'No AR object',
+      subtitle: isRu
+          ? '\u0412 \u0431\u0430\u0437\u0435 \u0434\u0430\u043d\u043d\u044b\u0445 \u043f\u043e\u043a\u0430 \u043d\u0435\u0442 \u0431\u043b\u0438\u0436\u0430\u0439\u0448\u0435\u0439 \u0434\u043e\u0441\u0442\u043e\u043f\u0440\u0438\u043c\u0435\u0447\u0430\u0442\u0435\u043b\u044c\u043d\u043e\u0441\u0442\u0438.'
+          : 'In the database there is no nearby landmark yet.',
+    );
+  }
+}
+
+class _TooFarHint extends StatelessWidget {
+  const _TooFarHint({required this.target, required this.isRu});
+
+  final _ArScanTarget target;
+  final bool isRu;
+
+  @override
+  Widget build(BuildContext context) {
+    return _CenteredHint(
+      icon: Icons.social_distance,
+      title: isRu
+          ? '\u041f\u043e\u0434\u043e\u0439\u0434\u0438\u0442\u0435 \u0431\u043b\u0438\u0436\u0435'
+          : 'Move closer',
+      subtitle: target.tooFarLabel(isRu),
+    );
+  }
+}
+
+class _MissingModelHint extends StatelessWidget {
+  const _MissingModelHint({required this.modelPath, required this.isRu});
+
+  final String modelPath;
+  final bool isRu;
+
+  @override
+  Widget build(BuildContext context) {
+    return _CenteredHint(
+      icon: Icons.view_in_ar_outlined,
+      title: isRu
+          ? '3D-\u043c\u043e\u0434\u0435\u043b\u044c \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u0430'
+          : '3D model not found',
+      subtitle: modelPath,
+    );
+  }
+}
+
+class _CenteredHint extends StatelessWidget {
+  const _CenteredHint({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: _ArScreenState._base, size: 42),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: _ArScreenState._base,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: _ArScreenState._base.withOpacity(0.65),
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ArScanTarget {
+  const _ArScanTarget({
+    required this.title,
+    required this.description,
+    required this.modelAsset,
+    required this.distanceM,
+    required this.radiusM,
+  });
+
+  final String title;
+  final String description;
+  final String modelAsset;
+  final double distanceM;
+  final int radiusM;
+
+  factory _ArScanTarget.fromPoi({
+    required Poi poi,
+    required double distanceM,
+  }) {
+    return _ArScanTarget(
+      title: poi.arTitle?.trim().isNotEmpty == true ? poi.arTitle! : poi.name,
+      description: poi.arDescription?.trim().isNotEmpty == true
+          ? poi.arDescription!
+          : poi.description,
+      modelAsset: poi.arModelAsset!,
+      distanceM: distanceM,
+      radiusM: poi.arRadiusM,
+    );
+  }
+
+  String distanceLabel(bool isRu) {
+    if (distanceM >= 1000) {
+      final km = (distanceM / 1000).toStringAsFixed(1);
+      return isRu
+          ? '\u0420\u0430\u0441\u0441\u0442\u043e\u044f\u043d\u0438\u0435: $km \u043a\u043c'
+          : 'Distance: $km km';
+    }
+    return isRu
+        ? '\u0420\u0430\u0441\u0441\u0442\u043e\u044f\u043d\u0438\u0435: ${distanceM.toStringAsFixed(0)} \u043c'
+        : 'Distance: ${distanceM.toStringAsFixed(0)} m';
+  }
+
+  String tooFarLabel(bool isRu) {
+    return isRu
+        ? '\u0414\u043e \u043e\u0431\u044a\u0435\u043a\u0442\u0430 ${distanceM.toStringAsFixed(0)} \u043c. \u041d\u0443\u0436\u043d\u043e \u043f\u043e\u0434\u043e\u0439\u0442\u0438 \u0431\u043b\u0438\u0436\u0435 ${radiusM} \u043c.'
+        : 'Object is ${distanceM.toStringAsFixed(0)} m away. Move within $radiusM m.';
+  }
+}
