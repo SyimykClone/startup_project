@@ -43,14 +43,21 @@ def _normalize_params(params: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _post_json(url: str, body: dict[str, Any]) -> Any:
+    body = _normalize_params(body)
     headers = {"User-Agent": "around-backend/1.0"}
-    async with httpx.AsyncClient(timeout=20.0, headers=headers) as client:
+    params = {"key": _require_api_key()}
+    params_for_log = {k: v for k, v in params.items() if k.lower() != "key"}
+    logging.getLogger("twogis").debug("2GIS POST %s params=%s body=%s", url, params_for_log, str(body)[:1000])
+    async with httpx.AsyncClient(timeout=25.0, headers=headers) as client:
         try:
-            res = await client.post(url, json=body)
+            res = await client.post(url, params=params, json=body)
         except Exception as exc:
             raise TwoGisError(f"2GIS request failed: {exc}")
 
+    logging.getLogger("twogis").debug("2GIS POST response %s -> %s", res.status_code, (res.text or "")[:1000])
     if res.status_code != 200:
+        if res.status_code == 403:
+            raise TwoGisError("2GIS routing forbidden: check TWOGIS_API_KEY and routing permissions")
         raise TwoGisError(f"2GIS HTTP error {res.status_code}: {res.text}")
 
     data = res.json()
